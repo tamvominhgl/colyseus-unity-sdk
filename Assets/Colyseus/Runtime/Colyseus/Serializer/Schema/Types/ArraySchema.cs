@@ -27,6 +27,16 @@ namespace Colyseus.Schema
             items = new Dictionary<int, T>();
         }
 
+        public ArraySchema(ArrayList array)
+        {
+            items = new Dictionary<int, T>();
+            var i = 0;
+            foreach (var item in array)
+            {
+                items[i++] = (T)item;
+            }
+        }
+
         public ArraySchema(Dictionary<int, T> items = null)
         {
             this.items = items ?? new Dictionary<int, T>();
