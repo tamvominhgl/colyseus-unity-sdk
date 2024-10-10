@@ -428,7 +428,7 @@ namespace Colyseus
                 {
                     try
                     {
-                        serializer = (IColyseusSerializer<T>) new ColyseusNoneSerializer();
+                        serializer = (IColyseusSerializer<T>) new ColyseusNoneSerializer<T>();
                     }
                     catch (Exception e)
                     {
