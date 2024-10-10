@@ -96,6 +96,10 @@ namespace GameDevWare.Serialization
 				serializer = this.CreateDictionarySerializer(valueType);
 			else if (valueType.IsArray || typeof(IEnumerable).IsAssignableFrom(valueType))
 				serializer = this.CreateArraySerializer(valueType);
+            else if (valueType.IsGenericType && valueType.GetGenericTypeDefinition() == typeof(Colyseus.Schema.ArraySchema<>))
+            {
+                serializer = new ArraySchemaSerializer(valueType);
+            }
 			else
 				serializer = (this.SerializerFactory != null ? this.SerializerFactory(valueType) : null) ?? this.CreateObjectSerializer(valueType);
 
