@@ -207,7 +207,7 @@ namespace Colyseus.Schema
     /// </summary>
     public class Schema : IRef
     {
-        public SchemaCallbacks __callbacks = null;
+        protected SchemaCallbacks __callbacks = null;
 
         /// <summary>
         ///     Map of the <see cref="Type.ChildPrimitiveType" />s that this schema uses
