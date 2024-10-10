@@ -3,7 +3,7 @@ namespace Colyseus
     /// <summary>
     ///     An empty implementation of <see cref="IColyseusSerializer{T}" />
     /// </summary>
-    public class ColyseusNoneSerializer : IColyseusSerializer<object>
+    public class ColyseusNoneSerializer<T> : IColyseusSerializer<T>
     {
         /// <inheritdoc />
         public void SetState(byte[] rawEncodedState, int offset)
@@ -11,9 +11,9 @@ namespace Colyseus
         }
 
         /// <inheritdoc />
-        public object GetState()
+        public T GetState()
         {
-            return this;
+            return default;
         }
 
         /// <inheritdoc />
