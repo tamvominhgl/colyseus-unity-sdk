@@ -27,7 +27,7 @@ namespace Colyseus.Schema
             items = new Dictionary<int, T>();
         }
 
-        public ArraySchema(ArrayList array)
+        public ArraySchema(IList array)
         {
             items = new Dictionary<int, T>();
             var i = 0;
