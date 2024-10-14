@@ -120,14 +120,14 @@ namespace Colyseus
                 if (req.isNetworkError || req.isHttpError)
 #endif
                 {
-                    if (_settings.useSecureProtocol)
+                    /* if (_settings.useSecureProtocol)
                     {
                         //We failed to make this call with a secure protocol, try with non-secure and if that works we'll stick with it
                         _settings.useSecureProtocol = false;
                         Debug.LogError($"Failed to make request to {req.url} with secure protocol, trying again without!");
                         return await Request(uriMethod, uriPath, jsonBody, headers);
                     }
-                    else
+                    else */
                     {
                         var errorMessage = req.error;
 
