@@ -128,6 +128,9 @@ namespace GameDevWare.Serialization.Serializers
 
 			foreach (var member in this.objectTypeDescription.Members)
 			{
+				// we make use of Schema class to send message to GS, and need to exclude "__refId"
+				if (member.Name == "__refId") continue;
+
 				var baseMemberWithSameName = default(DataMemberDescription);
 				if (this.baseTypeSerializer != null && this.baseTypeSerializer.TryGetMember(member.Name, out baseMemberWithSameName))
 					container.Remove(baseMemberWithSameName);
