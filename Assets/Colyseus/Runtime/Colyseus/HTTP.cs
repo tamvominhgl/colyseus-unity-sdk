@@ -127,12 +127,13 @@ namespace Colyseus
                     //
                     if (!string.IsNullOrEmpty(req.downloadHandler.text))
 					{
+                        try {
                         var data = Json.Deserialize<ErrorResponse>(req.downloadHandler.text);
                         if (!string.IsNullOrEmpty(data.error))
 						{
                             errorMessage = data.error;
-                            throw new HttpException((int)req.responseCode, errorMessage);
                         }
+                        } catch (Exception) {}
 					}
 
                     throw new HttpException((int)req.responseCode, errorMessage);
