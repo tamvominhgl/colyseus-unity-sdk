@@ -85,7 +85,7 @@ namespace Colyseus
                 if (jsonBody != null)
                 {
                     MemoryStream jsonBodyStream = new MemoryStream();
-                    Json.Serialize(jsonBody, jsonBodyStream); //TODO: Replace GameDevWare serialization
+                    Json.Serialize(jsonBody, jsonBodyStream, SerializationOptions.SuppressTypeInformation); //TODO: Replace GameDevWare serialization
 
                     req.uploadHandler = new UploadHandlerRaw(jsonBodyStream.ToArray())
                     {
