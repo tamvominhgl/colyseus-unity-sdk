@@ -7,6 +7,9 @@ using Colyseus.Schema;
 using GameDevWare.Serialization;
 using NativeWebSocket;
 using UnityEngine;
+#if USE_MESSAGEPACK_CSHARP
+using MessagePack;
+#endif
 
 namespace Colyseus
 {
@@ -252,10 +255,14 @@ namespace Colyseus
         /// </summary>
         /// <param name="type">Message type</param>
         /// <param name="message">Message payload</param>
-        public async Task Send(byte type, object message)
+        public async Task Send<MessageType>(byte type, MessageType message)
         {
             MemoryStream serializationOutput = new MemoryStream();
+#if USE_MESSAGEPACK_CSHARP
+            MessagePackSerializer.Serialize(serializationOutput, message);
+#else
             MsgPack.Serialize(message, serializationOutput, SerializationOptions.SuppressTypeInformation);
+#endif
 
             byte[] initialBytes = {ColyseusProtocol.ROOM_DATA, type};
             byte[] encodedMessage = serializationOutput.ToArray();
@@ -288,10 +295,14 @@ namespace Colyseus
         /// </summary>
         /// <param name="type">Message type</param>
         /// <param name="message">Message payload</param>
-        public async Task Send(string type, object message)
+        public async Task Send<MessageType>(string type, MessageType message)
         {
             MemoryStream serializationOutput = new MemoryStream();
+#if USE_MESSAGEPACK_CSHARP
+            MessagePackSerializer.Serialize(serializationOutput, message);
+#else
             MsgPack.Serialize(message, serializationOutput, SerializationOptions.SuppressTypeInformation);
+#endif
 
             byte[] encodedType = Encoding.UTF8.GetBytes(type);
             byte[] initialBytes = Encode.getInitialBytesFromEncodedType(encodedType, ColyseusProtocol.ROOM_DATA);
@@ -475,6 +486,13 @@ namespace Colyseus
 
                     if ( code == ColyseusProtocol.ROOM_DATA )
                     {
+#if USE_MESSAGEPACK_CSHARP
+                        if (bytes.Length > it.Offset)
+                        {
+                            handler.ParseAndInvoke(new MemoryStream(bytes, it.Offset, bytes.Length - it.Offset, false));
+                            return;
+                        }
+#else
                         //
                         // MsgPack deserialization can be optimized:
                         // https://github.com/deniszykov/msgpack-unity3d/issues/23
@@ -483,6 +501,7 @@ namespace Colyseus
                             ? MsgPack.Deserialize(handler.Type,
                                 new MemoryStream(bytes, it.Offset, bytes.Length - it.Offset, false))
                             : null;
+#endif
                     }
                     else if ( code == ColyseusProtocol.ROOM_DATA_BYTES )
                     {
