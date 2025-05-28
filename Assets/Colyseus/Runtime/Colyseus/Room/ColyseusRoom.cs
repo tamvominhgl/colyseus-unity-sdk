@@ -155,7 +155,7 @@ namespace Colyseus
         {
 			void OnOpen()
 			{
-                Debug.Log($"Colyseus connection connected: {RoomId}");
+                Debug.Log($"Connection {RoomId} connected");
 			}
             Connection.OnOpen += OnOpen;
 
@@ -216,7 +216,7 @@ namespace Colyseus
 	        {
 		        if (devModeCloseCallback == null || code == 1006)
 		        {
-                    Debug.Log($"Colyseus connection closed: {code}");
+                    Debug.Log($"Connection {RoomId} closed: {code}");
 			        room.OnLeave?.Invoke(code);
 		        }
 		        else
