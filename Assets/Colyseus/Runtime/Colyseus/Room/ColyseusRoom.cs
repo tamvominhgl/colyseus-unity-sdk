@@ -154,6 +154,7 @@ namespace Colyseus
         public async Task Connect()
         {
             await Connection.Connect();
+            Debug.Log($"Colyseus connection connected: {RoomId}");
         }
 
         /// <summary>
@@ -210,6 +211,7 @@ namespace Colyseus
 	        {
 		        if (devModeCloseCallback == null || code == 1006)
 		        {
+                    Debug.Log($"Colyseus connection closed: {code}");
 			        room.OnLeave?.Invoke(code);
 		        }
 		        else

@@ -365,6 +365,8 @@ namespace Colyseus
 				response.reconnectionToken = (string)options["reconnectionToken"];
 			}
 
+			Debug.Log($"MatchMake {roomName}: {response.room.roomId}, session: {response.sessionId}");
+
 			return await ConsumeSeatReservation<T>(response, headers);
 		}
 
