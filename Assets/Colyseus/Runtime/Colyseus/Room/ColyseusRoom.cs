@@ -153,8 +153,13 @@ namespace Colyseus
         /// <returns>Response from <see cref="Connection"></see>.Connect()</returns>
         public async Task Connect()
         {
+			void OnOpen()
+			{
+                Debug.Log($"Colyseus connection connected: {RoomId}");
+			}
+            Connection.OnOpen += OnOpen;
+
             await Connection.Connect();
-            Debug.Log($"Colyseus connection connected: {RoomId}");
         }
 
         /// <summary>
