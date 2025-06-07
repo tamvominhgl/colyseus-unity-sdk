@@ -5,7 +5,7 @@ using System.Text;
 using System.Threading.Tasks;
 using Colyseus.Schema;
 using GameDevWare.Serialization;
-using NativeWebSocket;
+using Utilities.WebSockets;
 using UnityEngine;
 
 namespace Colyseus
@@ -186,7 +186,7 @@ namespace Colyseus
             }
             else
             {
-                OnLeave?.Invoke((int)WebSocketCloseCode.Normal);
+                OnLeave?.Invoke((int)CloseStatusCode.Normal);
             }
         }
 

@@ -1,84 +1,87 @@
-using UnityEngine;
 using System;
 using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
-using NativeWebSocket;
-// ReSharper disable InconsistentNaming
+using Utilities.WebSockets;
 
 namespace Colyseus
 {
-    /// <summary>
-    ///     WebSocket connection representation with some custom functionality
-    /// </summary>
-    public class ColyseusConnection : WebSocket
+    public class ColyseusConnection
     {
-        /// <summary>
-        ///     Is the connection currently open
-        /// </summary>
         public bool IsOpen;
 
-        /// <summary>
-        ///     Flag to keep processing function alive
-        /// </summary>
-        /// <remarks>Set to true via <see cref="_OnOpen" />, false via <see cref="_OnClose" /></remarks>
-        protected bool ProcessingMessageQueue;
+        public event Action OnOpen = delegate { };
+        public event Action<byte[]> OnMessage = delegate { };
+        public event Action<string> OnError = delegate { };
+        public event Action<int> OnClose = delegate { };
 
-        public ColyseusConnection(string url, Dictionary<string, string> headers) : base(url, headers)
+        public State State => _socket.State;
+
+        WebSocket _socket;
+        bool _disposed = false;
+
+        public ColyseusConnection(string url, Dictionary<string, string> headers)
         {
-            Initialize();
+            _socket = new(url, headers);
+
+            _socket.OnOpen += _OnOpen;
+            _socket.OnMessage += _OnMessage;
+            _socket.OnError += _OnError;
+            _socket.OnClose += _OnClose;
         }
 
-        private void Initialize()
+        public Task Connect(CancellationToken cancellationToken = default)
         {
-            OnOpen += _OnOpen;
-            OnClose += _OnClose;
+            return _socket.ConnectAsync(cancellationToken);
         }
 
-#if UNITY_WEBGL && !UNITY_EDITOR
-#else
-        /// <summary>
-        ///     A while loop that runs as long as the connection is open, triggering <see cref="WebSocket.DispatchMessageQueue" />
-        /// </summary>
-        public async void ProcessMessageQueue()
+        public Task Send(ArraySegment<byte> data, CancellationToken cancellationToken = default)
         {
-            ProcessingMessageQueue = true;
-            while (ProcessingMessageQueue)
+            return _socket.SendAsync(data, cancellationToken);
+        }
+
+        public Task Close()
+        {
+            if (_socket.State == State.Open)
             {
-                DispatchMessageQueue();
-
-                // Switch context
-                await Task.Yield();
+                return _socket.CloseAsync();
+            }
+            else
+            {
+                if (!_disposed)
+                {
+                    _disposed = true;
+                    _socket.Dispose();
+                }
+                return Task.CompletedTask;
             }
         }
-#endif
 
-        /// <summary>
-        ///     Functionality to run when connection is opened
-        /// </summary>
-        /// <remarks>Kick starts the <see cref="ProcessMessageQueue" /> while loop</remarks>
         protected void _OnOpen()
         {
             IsOpen = true;
-
-#if UNITY_WEBGL && !UNITY_EDITOR
-#else
-            ProcessMessageQueue();
-#endif
+            OnOpen();
         }
 
-        /// <summary>
-        ///     Functionality to run when a connection closes
-        /// </summary>
-        /// <remarks>
-        ///     Sets the <see cref="ProcessingMessageQueue" /> flag to false, stopping the
-        ///     <see cref="ProcessingMessageQueue" /> while loop
-        /// </remarks>
-        /// <param name="code">The cause of the socket closure</param>
-        protected void _OnClose(int code)
+        protected void _OnMessage(DataFrame frame)
         {
-            ProcessingMessageQueue = false;
+            OnMessage(frame.Data.ToArray());
+        }
+
+        protected void _OnError(Exception ex)
+        {
+            OnError(ex.Message);
+        }
+
+        protected void _OnClose(CloseStatusCode code, string reason)
+        {
             IsOpen = false;
-            // Debug.Log(string.Format("Websocket closed! Code:{0}", code.ToString()));
+            if (!_disposed)
+            {
+                _disposed = true;
+                _socket.Dispose();
+            }
+            OnClose((int)code);
         }
     }
 }

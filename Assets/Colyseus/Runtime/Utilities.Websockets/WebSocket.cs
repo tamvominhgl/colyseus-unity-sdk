@@ -10,7 +10,6 @@ using System.Net.WebSockets;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using Cysharp.Threading.Tasks;
 using UnityEngine;
 
 namespace Utilities.WebSockets
@@ -43,7 +42,7 @@ namespace Utilities.WebSockets
             while (_semaphore != null)
             {
                 // ensure that messages are invoked on main thread.
-                await UniTask.SwitchToMainThread();
+                await Awaitable.NextFrameAsync();
 
                 while (_events.TryDequeue(out var action))
                 {
