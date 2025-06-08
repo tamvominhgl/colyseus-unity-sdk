@@ -2,10 +2,15 @@ using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using UnityEngine;
+#if USE_MESSAGEPACK_CSHARP
+using MessagePack;
+#else
 using GameDevWare.Serialization;
+#endif
 
 namespace Colyseus
 {
+#if !USE_MESSAGEPACK_CSHARP
 	public interface IAuthData
 	{
 		string Token { get; }
@@ -84,6 +89,7 @@ namespace Colyseus
 			return instance;
 		}
 	}
+#endif
 
 	public interface IAuthChangeHandler
 	{
@@ -129,6 +135,7 @@ namespace Colyseus
 			set => _client.Http.AuthToken = value;
 		}
 
+#if !USE_MESSAGEPACK_CSHARP
 		public async Task<Action> OnChange<T>(Action<AuthData<T>> callback)
 		{
 			var handler = new AuthChangeHandler<AuthData<T>>
@@ -297,7 +304,7 @@ namespace Colyseus
 				return new AuthData<T>(authData.token, authData.RawUser);
 			}
 		}
-
+#endif
 	}
 }
 

@@ -4,11 +4,12 @@ using System.IO;
 using System.Text;
 using System.Threading.Tasks;
 using Colyseus.Schema;
-using GameDevWare.Serialization;
 using Utilities.WebSockets;
 using UnityEngine;
 #if USE_MESSAGEPACK_CSHARP
 using MessagePack;
+#else
+using GameDevWare.Serialization;
 #endif
 
 namespace Colyseus
