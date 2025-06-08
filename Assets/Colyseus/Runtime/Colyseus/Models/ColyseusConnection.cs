@@ -6,6 +6,14 @@ using Utilities.WebSockets;
 
 namespace Colyseus
 {
+    public enum ConnectionState : ushort
+    {
+        Connecting = 0,
+        Open = 1,
+        Closing = 2,
+        Closed = 3
+    }
+
     public class ColyseusConnection
     {
         public bool IsOpen;
@@ -15,7 +23,7 @@ namespace Colyseus
         public event Action<string> OnError = delegate { };
         public event Action<int> OnClose = delegate { };
 
-        public State State => _socket.State;
+        public ConnectionState State => (ConnectionState)_socket.State;
 
         WebSocket _socket;
         bool _disposed = false;
@@ -42,7 +50,7 @@ namespace Colyseus
 
         public Task Close()
         {
-            if (_socket.State == State.Open)
+            if (_socket.State == Utilities.WebSockets.State.Open)
             {
                 return _socket.CloseAsync();
             }
