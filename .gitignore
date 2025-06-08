@@ -17,6 +17,8 @@ bin
 obj
 
 #NuGet packages
+Packages/nuget-packages/InstalledPackages
+Packages/nuget-packages/InstalledPackages.meta
 Colyseus/packages
 !packages/repositories.config
 
