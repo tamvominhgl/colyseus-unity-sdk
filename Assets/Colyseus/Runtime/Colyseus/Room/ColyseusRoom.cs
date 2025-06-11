@@ -157,12 +157,6 @@ namespace Colyseus
         /// <returns>Response from <see cref="Connection"></see>.Connect()</returns>
         public async Task Connect()
         {
-			void OnOpen()
-			{
-                Debug.Log($"Connection {RoomId} connected");
-			}
-            Connection.OnOpen += OnOpen;
-
             await Connection.Connect();
         }
 
@@ -215,6 +209,8 @@ namespace Colyseus
         {
 	        room ??= this;
 	        room.Connection = colyseusConnection;
+
+            room.Connection.OnOpen += () => Debug.Log($"Connection {RoomId} connected");
 
 	        room.Connection.OnClose += code =>
 	        {
