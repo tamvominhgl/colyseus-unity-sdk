@@ -32,10 +32,10 @@ namespace Colyseus
         {
             _socket = new(url, headers);
 
-            _socket.OnOpen += _OnOpen;
-            _socket.OnMessage += _OnMessage;
-            _socket.OnError += _OnError;
-            _socket.OnClose += _OnClose;
+            _socket.OnOpen += OnSocketOpen;
+            _socket.OnMessage += OnSocketMessage;
+            _socket.OnError += OnSocketError;
+            _socket.OnClose += OnSocketClose;
         }
 
         public Task Connect(CancellationToken cancellationToken = default)
@@ -65,23 +65,23 @@ namespace Colyseus
             }
         }
 
-        protected void _OnOpen()
+        protected void OnSocketOpen()
         {
             IsOpen = true;
             OnOpen();
         }
 
-        protected void _OnMessage(DataFrame frame)
+        protected void OnSocketMessage(DataFrame frame)
         {
             OnMessage(frame.Data.ToArray());
         }
 
-        protected void _OnError(Exception ex)
+        protected void OnSocketError(Exception ex)
         {
             OnError(ex.Message);
         }
 
-        protected void _OnClose(CloseStatusCode code, string reason)
+        protected void OnSocketClose(CloseStatusCode code, string reason)
         {
             IsOpen = false;
             if (!_disposed)
