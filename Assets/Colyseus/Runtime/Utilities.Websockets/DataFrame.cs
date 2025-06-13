@@ -11,15 +11,15 @@ namespace Utilities.WebSockets
         // public ReadOnlyMemory<byte> Data { get; }
         public byte[] Data { get; }
 
-        public string Text { get; }
+        // public string Text { get; }
 
         public DataFrame(OpCode type, byte[] data)
         {
             Type = type;
             Data = data;
-            Text = type == OpCode.Text
-                ? System.Text.Encoding.UTF8.GetString(data)
-                : string.Empty;
+            // Text = type == OpCode.Text
+            //     ? System.Text.Encoding.UTF8.GetString(data)
+            //     : string.Empty;
         }
     }
 }
