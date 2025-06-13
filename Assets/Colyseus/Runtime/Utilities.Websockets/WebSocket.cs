@@ -190,7 +190,14 @@ namespace Utilities.WebSockets
                     }
                     else
                     {
-                        await CloseAsync(cancellationToken: CancellationToken.None).ConfigureAwait(false);
+                        if (State == State.Open)
+                        {
+                            await CloseAsync(cancellationToken: CancellationToken.None).ConfigureAwait(false);
+                        }
+                        else
+                        {
+                            _events.Enqueue(() => OnClose?.Invoke(CloseStatusCode.Normal, string.Empty));
+                        }
                         break;
                     }
                 }
