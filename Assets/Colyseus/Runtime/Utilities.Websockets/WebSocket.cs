@@ -182,11 +182,11 @@ namespace Utilities.WebSockets
                     } while (!result.EndOfMessage);
 
                     await stream.FlushAsync(cancellationToken).ConfigureAwait(false);
-                    var memory = new ReadOnlyMemory<byte>(stream.GetBuffer(), 0, (int)stream.Length);
+                    // var memory = new ReadOnlyMemory<byte>(stream.GetBuffer(), 0, (int)stream.Length);
 
                     if (result.MessageType != WebSocketMessageType.Close)
                     {
-                        _events.Enqueue(() => OnMessage?.Invoke(new DataFrame((OpCode)(int)result.MessageType, memory)));
+                        _events.Enqueue(() => OnMessage?.Invoke(new DataFrame((OpCode)(int)result.MessageType, stream.ToArray())));
                     }
                     else
                     {

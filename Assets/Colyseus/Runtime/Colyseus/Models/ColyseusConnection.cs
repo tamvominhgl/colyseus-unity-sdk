@@ -79,7 +79,7 @@ namespace Colyseus
 
         protected void OnSocketMessage(DataFrame frame)
         {
-            OnMessage(frame.Data.ToArray());
+            OnMessage(frame.Data);
         }
 
         protected void OnSocketError(Exception ex)
