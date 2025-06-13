@@ -14,6 +14,43 @@ using UnityEngine;
 
 namespace Utilities.WebSockets
 {
+    interface IEvent
+    {
+    }
+
+    class OpenEvent : IEvent
+    {
+    }
+
+    class DataEvent : IEvent
+    {
+        public DataFrame Data { get; }
+        public DataEvent(DataFrame dataFrame)
+        {
+            Data = dataFrame;
+        }
+    }
+    
+    class ErrorEvent : IEvent
+    {
+        public Exception Exception { get; }
+        public ErrorEvent(Exception exception)
+        {
+            Exception = exception;
+        }
+    }
+
+    class CloseEvent : IEvent
+    {
+        public CloseStatusCode Code { get; }
+        public string Message { get; }
+        public CloseEvent(CloseStatusCode code, string message)
+        {
+            Code = code;
+            Message = message;
+        }
+    }
+
     public class WebSocket : IWebSocket
     {
         public WebSocket(string url, IReadOnlyDictionary<string, string> requestHeaders = null, IReadOnlyList<string> subProtocols = null)
@@ -44,11 +81,25 @@ namespace Utilities.WebSockets
 
             while (_semaphore != null)
             {
-                while (_events.TryDequeue(out var action))
+                while (_events.TryDequeue(out var evt))
                 {
                     try
                     {
-                        action.Invoke();
+                        switch (evt)
+                        {
+                            case OpenEvent:
+                                OnOpen?.Invoke();
+                                break;
+                            case DataEvent dataEvent:
+                                OnMessage?.Invoke(dataEvent.Data);
+                                break;
+                            case ErrorEvent errorEvent:
+                                OnError?.Invoke(errorEvent.Exception);
+                                break;
+                            case CloseEvent closeEvent:
+                                OnClose?.Invoke(closeEvent.Code, closeEvent.Message);
+                                break;
+                        }
                     }
                     catch (Exception e)
                     {
@@ -132,7 +183,7 @@ namespace Utilities.WebSockets
         private ClientWebSocket _socket;
         private SemaphoreSlim _semaphore = new(1, 1);
         private CancellationTokenSource _lifetimeCts;
-        private readonly ConcurrentQueue<Action> _events = new();
+        private readonly ConcurrentQueue<IEvent> _events = new();
 
         /// <inheritdoc />
         public async void Connect()
@@ -166,7 +217,7 @@ namespace Utilities.WebSockets
                 }
 
                 await _socket.ConnectAsync(Address, cancellationToken).ConfigureAwait(false);
-                _events.Enqueue(() => OnOpen?.Invoke());
+                _events.Enqueue(new OpenEvent());
                 var buffer = new Memory<byte>(new byte[8192]);
 
                 while (State == State.Open)
@@ -186,7 +237,7 @@ namespace Utilities.WebSockets
 
                     if (result.MessageType != WebSocketMessageType.Close)
                     {
-                        _events.Enqueue(() => OnMessage?.Invoke(new DataFrame((OpCode)(int)result.MessageType, stream.ToArray())));
+                        _events.Enqueue(new DataEvent(new DataFrame((OpCode)(int)result.MessageType, stream.ToArray())));
                     }
                     else
                     {
@@ -196,7 +247,7 @@ namespace Utilities.WebSockets
                         }
                         else
                         {
-                            _events.Enqueue(() => OnClose?.Invoke(CloseStatusCode.Normal, string.Empty));
+                            _events.Enqueue(new CloseEvent(CloseStatusCode.Normal, string.Empty));
                         }
                         break;
                     }
@@ -211,8 +262,8 @@ namespace Utilities.WebSockets
                         break;
                     default:
                         Debug.LogException(e);
-                        _events.Enqueue(() => OnError?.Invoke(e));
-                        _events.Enqueue(() => OnClose?.Invoke(CloseStatusCode.AbnormalClosure, e.Message));
+                        _events.Enqueue(new ErrorEvent(e));
+                        _events.Enqueue(new CloseEvent(CloseStatusCode.AbnormalClosure, e.Message));
                         break;
                 }
             }
@@ -249,7 +300,7 @@ namespace Utilities.WebSockets
                         break;
                     default:
                         Debug.LogException(e);
-                        _events.Enqueue(() => OnError?.Invoke(e));
+                        _events.Enqueue(new ErrorEvent(e));
                         break;
                 }
             }
@@ -271,7 +322,7 @@ namespace Utilities.WebSockets
                 if (State == State.Open)
                 {
                     await _socket.CloseAsync((WebSocketCloseStatus)(int)code, reason, cancellationToken).ConfigureAwait(false);
-                    _events.Enqueue(() => OnClose?.Invoke(code, reason));
+                    _events.Enqueue(new CloseEvent(code, reason));
                 }
             }
             catch (Exception e)
@@ -283,7 +334,7 @@ namespace Utilities.WebSockets
                         break;
                     default:
                         Debug.LogException(e);
-                        _events.Enqueue(() => OnError?.Invoke(e));
+                        _events.Enqueue(new ErrorEvent(e));
                         break;
                 }
             }
