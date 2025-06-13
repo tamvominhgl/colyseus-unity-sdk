@@ -120,8 +120,10 @@ namespace Colyseus
 		public static string TOKEN_CACHE_KEY = "AuthToken";
 
 		private ColyseusClient _client;
+#if !USE_MESSAGEPACK_CSHARP
 		private List<IAuthChangeHandler> OnChangeHandlers = new List<IAuthChangeHandler>();
 		private bool initialized = false;
+#endif
 
 		public Auth(ColyseusClient client)
 		{
