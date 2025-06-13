@@ -194,15 +194,6 @@ namespace Utilities.WebSockets
                         break;
                     }
                 }
-
-                try
-                {
-                    await _semaphore.WaitAsync(CancellationToken.None).ConfigureAwait(false);
-                }
-                finally
-                {
-                    _semaphore.Release();
-                }
             }
             catch (Exception e)
             {
