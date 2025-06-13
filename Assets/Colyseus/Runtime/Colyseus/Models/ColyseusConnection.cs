@@ -89,13 +89,17 @@ namespace Colyseus
 
         protected void OnSocketClose(CloseStatusCode code, string reason)
         {
-            IsOpen = false;
+            if (IsOpen)
+            {
+                IsOpen = false;
+                OnClose((int)code);
+            }
+
             if (!disposed)
             {
                 disposed = true;
                 websocket.Dispose();
             }
-            OnClose((int)code);
         }
     }
 }
