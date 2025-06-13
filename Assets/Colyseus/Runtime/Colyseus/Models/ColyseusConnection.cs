@@ -23,43 +23,49 @@ namespace Colyseus
         public event Action<string> OnError = delegate { };
         public event Action<int> OnClose = delegate { };
 
-        public ConnectionState State => (ConnectionState)_socket.State;
+        public ConnectionState State => websocket?.State switch
+        {
+            Utilities.WebSockets.State.Connecting => ConnectionState.Connecting,
+            Utilities.WebSockets.State.Open => ConnectionState.Open,
+            Utilities.WebSockets.State.Closing => ConnectionState.Closing,
+            _ => ConnectionState.Closed
+        };
 
-        WebSocket _socket;
-        bool _disposed = false;
+        readonly WebSocket websocket;
+        bool disposed = false;
 
         public ColyseusConnection(string url, Dictionary<string, string> headers)
         {
-            _socket = new(url, headers);
+            websocket = new(url, headers);
 
-            _socket.OnOpen += OnSocketOpen;
-            _socket.OnMessage += OnSocketMessage;
-            _socket.OnError += OnSocketError;
-            _socket.OnClose += OnSocketClose;
+            websocket.OnOpen += OnSocketOpen;
+            websocket.OnMessage += OnSocketMessage;
+            websocket.OnError += OnSocketError;
+            websocket.OnClose += OnSocketClose;
         }
 
         public Task Connect(CancellationToken cancellationToken = default)
         {
-            return _socket.ConnectAsync(cancellationToken);
+            return websocket.ConnectAsync(cancellationToken);
         }
 
         public Task Send(ArraySegment<byte> data, CancellationToken cancellationToken = default)
         {
-            return _socket.SendAsync(data, cancellationToken);
+            return websocket.SendAsync(data, cancellationToken);
         }
 
         public Task Close()
         {
-            if (_socket.State == Utilities.WebSockets.State.Open)
+            if (websocket.State == Utilities.WebSockets.State.Open)
             {
-                return _socket.CloseAsync();
+                return websocket.CloseAsync();
             }
             else
             {
-                if (!_disposed)
+                if (!disposed)
                 {
-                    _disposed = true;
-                    _socket.Dispose();
+                    disposed = true;
+                    websocket.Dispose();
                 }
                 return Task.CompletedTask;
             }
@@ -84,10 +90,10 @@ namespace Colyseus
         protected void OnSocketClose(CloseStatusCode code, string reason)
         {
             IsOpen = false;
-            if (!_disposed)
+            if (!disposed)
             {
-                _disposed = true;
-                _socket.Dispose();
+                disposed = true;
+                websocket.Dispose();
             }
             OnClose((int)code);
         }
