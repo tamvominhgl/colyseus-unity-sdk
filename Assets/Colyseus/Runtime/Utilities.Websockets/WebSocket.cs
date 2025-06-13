@@ -39,11 +39,11 @@ namespace Utilities.WebSockets
 
         private async void RunMessageQueue()
         {
+            // ensure that messages are invoked on main thread.
+            await Awaitable.MainThreadAsync();
+
             while (_semaphore != null)
             {
-                // ensure that messages are invoked on main thread.
-                await Awaitable.NextFrameAsync();
-
                 while (_events.TryDequeue(out var action))
                 {
                     try
@@ -56,6 +56,8 @@ namespace Utilities.WebSockets
                         OnError?.Invoke(e);
                     }
                 }
+
+                await Awaitable.NextFrameAsync();
             }
         }
 
