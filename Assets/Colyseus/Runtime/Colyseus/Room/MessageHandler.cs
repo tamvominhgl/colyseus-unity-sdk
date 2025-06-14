@@ -1,4 +1,8 @@
 using System;
+#if USE_MESSAGEPACK_CSHARP
+using System.IO;
+using MessagePack;
+#endif
 
 namespace Colyseus
 {
@@ -17,6 +21,10 @@ namespace Colyseus
         /// </summary>
         /// <param name="message">The data to be passed into the function</param>
         void Invoke(object message);
+
+#if USE_MESSAGEPACK_CSHARP
+        void ParseAndInvoke(MemoryStream stream);
+#endif
     }
 
     /// <summary>
@@ -38,6 +46,14 @@ namespace Colyseus
         {
             Action.Invoke((T) message);
         }
+
+#if USE_MESSAGEPACK_CSHARP
+        public void ParseAndInvoke(MemoryStream stream)
+        {
+            var message = MessagePackSerializer.Deserialize<T>(stream);
+            Action.Invoke((T) message);
+        }
+#endif
 
         /// <summary>
         ///     Implementation of the interface Type

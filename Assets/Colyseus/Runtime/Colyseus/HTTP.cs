@@ -4,7 +4,11 @@ using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.Networking;
 using System.IO;
+#if USE_MESSAGEPACK_CSHARP
+using MessagePack;
+#else
 using GameDevWare.Serialization;
+#endif
 
 namespace Colyseus
 {
@@ -29,6 +33,7 @@ namespace Colyseus
             _settings = settings;
         }
 
+#if !USE_MESSAGEPACK_CSHARP
         public async Task<string> Get(string uriPath, Dictionary<string, string> headers = null)
         {
             return await Request("GET", uriPath, null, headers);
@@ -73,6 +78,7 @@ namespace Colyseus
 		{
             return Json.Deserialize<T>(await Request(uriMethod, uriPath, jsonBody, headers));
         }
+#endif
 
         public async Task<string> Request(string uriMethod, string uriPath, Dictionary<string, object> jsonBody = null, Dictionary<string, string> headers = null)
         {
@@ -90,7 +96,13 @@ namespace Colyseus
                 if (jsonBody != null)
                 {
                     MemoryStream jsonBodyStream = new MemoryStream();
+#if USE_MESSAGEPACK_CSHARP
+                    var writer = new StreamWriter(jsonBodyStream);
+                    MessagePackSerializer.SerializeToJson(writer, jsonBody);
+                    writer.Flush();
+#else
                     Json.Serialize(jsonBody, jsonBodyStream); //TODO: Replace GameDevWare serialization
+#endif
 
                     req.uploadHandler = new UploadHandlerRaw(jsonBodyStream.ToArray())
                     {
