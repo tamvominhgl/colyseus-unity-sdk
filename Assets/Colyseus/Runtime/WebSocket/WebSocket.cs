@@ -425,30 +425,14 @@ namespace NativeWebSocket
             }
         }
 
-        public WebSocketState State
+        public WebSocketState State => m_Socket?.State switch
         {
-            get
-            {
-                switch (m_Socket.State)
-                {
-                    case System.Net.WebSockets.WebSocketState.Connecting:
-                        return WebSocketState.Connecting;
-
-                    case System.Net.WebSockets.WebSocketState.Open:
-                        return WebSocketState.Open;
-
-                    case System.Net.WebSockets.WebSocketState.CloseSent:
-                    case System.Net.WebSockets.WebSocketState.CloseReceived:
-                        return WebSocketState.Closing;
-
-                    case System.Net.WebSockets.WebSocketState.Closed:
-                        return WebSocketState.Closed;
-
-                    default:
-                        return WebSocketState.Closed;
-                }
-            }
-        }
+            System.Net.WebSockets.WebSocketState.Connecting => WebSocketState.Connecting,
+            System.Net.WebSockets.WebSocketState.Open => WebSocketState.Open,
+            System.Net.WebSockets.WebSocketState.CloseSent => WebSocketState.Closing,
+            System.Net.WebSockets.WebSocketState.CloseReceived => WebSocketState.Closing,
+            _ => WebSocketState.Closed
+        };
 
         public Task Send(byte[] bytes)
         {
