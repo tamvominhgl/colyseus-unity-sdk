@@ -20,6 +20,7 @@ namespace Colyseus
     public class HTTP
     {
         public string AuthToken;
+        public int Timeout = 0;
 
         private ColyseusSettings _settings;
 
@@ -79,6 +80,10 @@ namespace Colyseus
             {
                 req.method = uriMethod;
                 req.url = GetRequestURL(uriPath);
+                if (Timeout > 0)
+                {
+                    req.timeout = Timeout;
+                }
                 //Debug.Log($"Requesting from URL: {req.url}");
 
                 // Send JSON on request body
