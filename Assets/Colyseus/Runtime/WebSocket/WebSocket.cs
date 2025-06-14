@@ -14,22 +14,30 @@ using System.Collections;
 
 public class MainThreadUtil : MonoBehaviour
 {
-    public static MainThreadUtil Instance { get; private set; }
+    private static MainThreadUtil Instance { get; set; }
+
+#if !UNITY_2023_1_OR_NEWER
     public static SynchronizationContext synchronizationContext { get; private set; }
+#endif
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
     public static void Setup()
     {
         Instance = new GameObject("MainThreadUtil")
             .AddComponent<MainThreadUtil>();
+
+#if !UNITY_2023_1_OR_NEWER
         synchronizationContext = SynchronizationContext.Current;
+#endif
     }
 
+#if !UNITY_2023_1_OR_NEWER
     public static void Run(IEnumerator waitForUpdate)
     {
         synchronizationContext.Post(_ => Instance.StartCoroutine(
                     waitForUpdate), null);
     }
+#endif
 
     void Awake()
     {
@@ -38,6 +46,7 @@ public class MainThreadUtil : MonoBehaviour
     }
 }
 
+#if !UNITY_2023_1_OR_NEWER
 public class WaitForUpdate : CustomYieldInstruction
 {
     public override bool keepWaiting
@@ -78,6 +87,7 @@ public class WaitForUpdate : CustomYieldInstruction
         awaiter.Complete();
     }
 }
+#endif
 
 namespace NativeWebSocket
 {
@@ -128,7 +138,7 @@ namespace NativeWebSocket
         public static WebSocketCloseCode ParseCloseCodeEnum(int closeCode)
         {
 
-            if (WebSocketCloseCode.IsDefined(typeof(WebSocketCloseCode), closeCode))
+            if (Enum.IsDefined(typeof(WebSocketCloseCode), closeCode))
             {
                 return (WebSocketCloseCode)closeCode;
             }
@@ -191,6 +201,7 @@ namespace NativeWebSocket
         public WebSocketInvalidStateException(string message, Exception inner) : base(message, inner) { }
     }
 
+#if !UNITY_2023_1_OR_NEWER
     public class WaitForBackgroundThread
     {
         public ConfiguredTaskAwaitable.ConfiguredTaskAwaiter GetAwaiter()
@@ -198,6 +209,7 @@ namespace NativeWebSocket
             return Task.Run(() => { }).ConfigureAwait(false).GetAwaiter();
         }
     }
+#endif
 
 #if UNITY_WEBGL && !UNITY_EDITOR
 
@@ -566,7 +578,11 @@ namespace NativeWebSocket
         public async Task Receive()
         {
             int closeCode = (int)WebSocketCloseCode.Abnormal;
+#if UNITY_2023_1_OR_NEWER
+            await Awaitable.BackgroundThreadAsync();
+#else
             await new WaitForBackgroundThread();
+#endif
 
             ArraySegment<byte> buffer = new ArraySegment<byte>(new byte[8192]);
             try
@@ -621,7 +637,11 @@ namespace NativeWebSocket
             }
             finally
             {
+#if UNITY_2023_1_OR_NEWER
+                await Awaitable.MainThreadAsync();
+#else
                 await new WaitForUpdate();
+#endif
                 OnClose?.Invoke(closeCode);
             }
         }
