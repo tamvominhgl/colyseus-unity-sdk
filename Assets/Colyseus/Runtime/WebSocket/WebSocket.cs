@@ -589,14 +589,8 @@ namespace NativeWebSocket
                     }
                     else
                     {
-                        if (State == WebSocketState.Open)
-                        {
-                            await Close().ConfigureAwait(false);
-                        }
-                        else
-                        {
-                            m_Events.Enqueue(new Event(EventType.Close, default, result.CloseStatusDescription, (int)result.CloseStatus));
-                        }
+                        await Close().ConfigureAwait(false);
+                        closeCode = (int)result.CloseStatus;
                         break;
                     }
                 }
