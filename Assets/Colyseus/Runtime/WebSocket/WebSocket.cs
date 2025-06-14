@@ -361,12 +361,9 @@ namespace NativeWebSocket
         private CancellationTokenSource m_TokenSource;
         private CancellationToken m_CancellationToken;
 
-        private readonly object OutgoingMessageLock = new object();
         private readonly object IncomingMessageLock = new object();
 
-        private bool isSending = false;
-        private List<ArraySegment<byte>> sendBytesQueue = new List<ArraySegment<byte>>();
-        private List<ArraySegment<byte>> sendTextQueue = new List<ArraySegment<byte>>();
+        private SemaphoreSlim m_Semaphore = new(1, 1);
 
         public WebSocket(string url, Dictionary<string, string> headers = null)
         {
@@ -435,102 +432,49 @@ namespace NativeWebSocket
         };
 
         public Task Send(byte[] bytes)
-        {
-            // return m_Socket.SendAsync(buffer, WebSocketMessageType.Binary, true, CancellationToken.None);
-            return SendMessage(sendBytesQueue, WebSocketMessageType.Binary, new ArraySegment<byte>(bytes));
-        }
+            => SendMessage(WebSocketMessageType.Binary, bytes);
 
         public Task SendText(string message)
-        {
-            var encoded = Encoding.UTF8.GetBytes(message);
+            => SendMessage(WebSocketMessageType.Text, Encoding.UTF8.GetBytes(message));
 
-            // m_Socket.SendAsync(buffer, WebSocketMessageType.Text, true, CancellationToken.None);
-            return SendMessage(sendTextQueue, WebSocketMessageType.Text, new ArraySegment<byte>(encoded, 0, encoded.Length));
-        }
-
-        private async Task SendMessage(List<ArraySegment<byte>> queue, WebSocketMessageType messageType, ArraySegment<byte> buffer)
+        private async Task SendMessage(WebSocketMessageType messageType, ReadOnlyMemory<byte> buffer)
         {
             // Return control to the calling method immediately.
             // await Task.Yield ();
 
             // Make sure we have data.
-            if (buffer.Count == 0)
+            if (buffer.Length == 0)
             {
                 return;
             }
 
-            // The state of the connection is contained in the context Items dictionary.
-            bool sending;
-
-            lock (OutgoingMessageLock)
+            try
             {
-                sending = isSending;
+                await m_Semaphore.WaitAsync(m_CancellationToken).ConfigureAwait(false);
 
-                // If not, we are now.
-                if (!isSending)
+                if (State != WebSocketState.Open)
                 {
-                    isSending = true;
+                    throw new InvalidOperationException("WebSocket is not ready!");
+                }
+
+                await m_Socket.SendAsync(buffer, messageType, true, m_CancellationToken).ConfigureAwait(false);
+            }
+            catch (Exception e)
+            {
+                switch (e)
+                {
+                    case TaskCanceledException:
+                    case OperationCanceledException:
+                        break;
+                    default:
+                        Debug.LogException(e);
+                        _events.Enqueue(new ErrorEvent(e));
+                        break;
                 }
             }
-
-            if (!sending)
+            finally
             {
-                // Lock with a timeout, just in case.
-                if (!Monitor.TryEnter(m_Socket, 1000))
-                {
-                    // If we couldn't obtain exclusive access to the socket in one second, something is wrong.
-                    await m_Socket.CloseAsync(WebSocketCloseStatus.InternalServerError, string.Empty, m_CancellationToken);
-                    return;
-                }
-
-                try
-                {
-                    // Send the message synchronously.
-                    var t = m_Socket.SendAsync(buffer, messageType, true, m_CancellationToken);
-                    t.Wait(m_CancellationToken);
-                }
-                finally
-                {
-                    Monitor.Exit(m_Socket);
-
-					// Note that we've finished sending.
-					lock (OutgoingMessageLock)
-					{
-						isSending = false;
-					}
-                }
-
-                // Handle any queued messages.
-                await HandleQueue(queue, messageType);
-            }
-            else
-            {
-                // Add the message to the queue.
-                lock (OutgoingMessageLock)
-                {
-                    queue.Add(buffer);
-                }
-            }
-        }
-
-        private async Task HandleQueue(List<ArraySegment<byte>> queue, WebSocketMessageType messageType)
-        {
-            var buffer = new ArraySegment<byte>();
-            lock (OutgoingMessageLock)
-            {
-                // Check for an item in the queue.
-                if (queue.Count > 0)
-                {
-                    // Pull it off the top.
-                    buffer = queue[0];
-                    queue.RemoveAt(0);
-                }
-            }
-
-            // Send that message.
-            if (buffer.Count > 0)
-            {
-                await SendMessage(queue, messageType, buffer);
+                m_Semaphore?.Release();
             }
         }
 
@@ -621,6 +565,9 @@ namespace NativeWebSocket
             }
             finally
             {
+                m_Semaphore?.Dispose();
+                m_Semaphore = null;
+                
 #if UNITY_2023_1_OR_NEWER
                 await Awaitable.MainThreadAsync();
 #else
