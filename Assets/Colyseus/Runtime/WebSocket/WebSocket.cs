@@ -354,9 +354,9 @@ namespace NativeWebSocket
         public event WebSocketErrorEventHandler OnError;
         public event WebSocketCloseEventHandler OnClose;
 
-        private Uri uri;
-        private Dictionary<string, string> headers;
-        private ClientWebSocket m_Socket = new ClientWebSocket();
+        private readonly Uri uri;
+        private readonly Dictionary<string, string> headers;
+        private ClientWebSocket m_Socket;
 
         private CancellationTokenSource m_TokenSource;
         private CancellationToken m_CancellationToken;
