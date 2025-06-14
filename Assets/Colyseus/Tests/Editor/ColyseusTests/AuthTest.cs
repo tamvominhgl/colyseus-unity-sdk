@@ -4,6 +4,7 @@ using System.Collections;
 using NUnit.Framework;
 using UnityEngine;
 
+#if !USE_MESSAGEPACK_CSHARP
 public class AuthTest
 {
 	class User
@@ -218,3 +219,4 @@ public class AuthTest
 	}
 
 }
+#endif
