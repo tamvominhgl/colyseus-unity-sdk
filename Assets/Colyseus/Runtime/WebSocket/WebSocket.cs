@@ -393,10 +393,18 @@ namespace NativeWebSocket
             public int Code { get; }
             public string Message { get; }
 
-            public Event(EventType type, byte[] data, string message = default, int code = default)
+            public Event(byte[] data)
+            {
+                Type = EventType.Message;
+                Data = data;
+                Message = default;
+                Code = default;
+            }
+
+            public Event(EventType type, string message = default, int code = default)
             {
                 Type = type;
-                Data = data;
+                Data = default;
                 Message = message;
                 Code = code;
             }
@@ -447,14 +455,14 @@ namespace NativeWebSocket
 
                 await m_Socket.ConnectAsync(uri, m_CancellationToken).ConfigureAwait(false);
 
-                m_Events.Enqueue(new Event(EventType.Open, default));
+                m_Events.Enqueue(new Event(EventType.Open));
 
                 await Receive().ConfigureAwait(false);
             }
             catch (Exception ex)
             {
-                m_Events.Enqueue(new Event(EventType.Error, default, ex.Message));
-                m_Events.Enqueue(new Event(EventType.Close, default, default, (int)WebSocketCloseCode.Abnormal));
+                m_Events.Enqueue(new Event(EventType.Error, ex.Message));
+                m_Events.Enqueue(new Event(EventType.Close, default, (int)WebSocketCloseCode.Abnormal));
             }
             finally
             {
@@ -512,7 +520,7 @@ namespace NativeWebSocket
                         break;
                     default:
                         Debug.LogException(e);
-                        m_Events.Enqueue(new Event(EventType.Error, default, e.Message));
+                        m_Events.Enqueue(new Event(EventType.Error, e.Message));
                         break;
                 }
             }
@@ -585,7 +593,7 @@ namespace NativeWebSocket
 
                     if (result.MessageType != WebSocketMessageType.Close)
                     {
-                        m_Events.Enqueue(new Event(EventType.Message, stream.ToArray()));
+                        m_Events.Enqueue(new Event(stream.ToArray()));
                     }
                     else
                     {
