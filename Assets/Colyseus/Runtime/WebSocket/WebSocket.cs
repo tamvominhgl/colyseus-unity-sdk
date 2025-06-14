@@ -471,6 +471,9 @@ namespace NativeWebSocket
                     m_TokenSource.Cancel();
                     m_Socket.Dispose();
                 }
+
+                m_Semaphore?.Dispose();
+                m_Semaphore = null;
             }
         }
 
@@ -609,9 +612,6 @@ namespace NativeWebSocket
             }
             finally
             {
-                m_Semaphore?.Dispose();
-                m_Semaphore = null;
-
 #if UNITY_2023_1_OR_NEWER
                 await Awaitable.MainThreadAsync();
 #else
