@@ -210,10 +210,12 @@ namespace Colyseus
 	        room ??= this;
 	        room.Connection = colyseusConnection;
 
+            room.Connection.OnOpen += () => Debug.Log($"websocket {RoomId} connected");
 	        room.Connection.OnClose += code =>
 	        {
 		        if (devModeCloseCallback == null || code == 1006)
 		        {
+                    Debug.Log($"websocket {RoomId} closed: {code}");
 			        room.OnLeave?.Invoke(code);
 		        }
 		        else
