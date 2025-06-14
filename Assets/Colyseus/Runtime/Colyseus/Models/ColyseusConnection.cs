@@ -12,50 +12,11 @@ namespace Colyseus
     /// </summary>
     public class ColyseusConnection : WebSocket
     {
-        /// <summary>
-        ///     Is the connection currently open
-        /// </summary>
-        public bool IsOpen;
-
-        /// <summary>
-        ///     Flag to keep processing function alive
-        /// </summary>
-        /// <remarks>Set to true via <see cref="_OnOpen" />, false via <see cref="_OnClose" /></remarks>
-        protected bool ProcessingMessageQueue;
+        public bool IsOpen => State == WebSocketState.Open;
 
         public ColyseusConnection(string url, Dictionary<string, string> headers) : base(url, headers)
         {
-            Initialize();
-        }
 
-        private void Initialize()
-        {
-            OnOpen += _OnOpen;
-            OnClose += _OnClose;
-        }
-
-        /// <summary>
-        ///     Functionality to run when connection is opened
-        /// </summary>
-        /// <remarks>Kick starts the <see cref="ProcessMessageQueue" /> while loop</remarks>
-        protected void _OnOpen()
-        {
-            IsOpen = true;
-        }
-
-        /// <summary>
-        ///     Functionality to run when a connection closes
-        /// </summary>
-        /// <remarks>
-        ///     Sets the <see cref="ProcessingMessageQueue" /> flag to false, stopping the
-        ///     <see cref="ProcessingMessageQueue" /> while loop
-        /// </remarks>
-        /// <param name="code">The cause of the socket closure</param>
-        protected void _OnClose(int code)
-        {
-            ProcessingMessageQueue = false;
-            IsOpen = false;
-            Debug.Log(string.Format("Websocket closed! Code:{0}", code.ToString()));
         }
     }
 }
