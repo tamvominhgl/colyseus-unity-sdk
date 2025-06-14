@@ -34,24 +34,6 @@ namespace Colyseus
             OnClose += _OnClose;
         }
 
-#if UNITY_WEBGL && !UNITY_EDITOR
-#else
-        /// <summary>
-        ///     A while loop that runs as long as the connection is open, triggering <see cref="WebSocket.DispatchMessageQueue" />
-        /// </summary>
-        public async void ProcessMessageQueue()
-        {
-            ProcessingMessageQueue = true;
-            while (ProcessingMessageQueue)
-            {
-                DispatchMessageQueue();
-
-                // Switch context
-                await Task.Yield();
-            }
-        }
-#endif
-
         /// <summary>
         ///     Functionality to run when connection is opened
         /// </summary>
@@ -59,11 +41,6 @@ namespace Colyseus
         protected void _OnOpen()
         {
             IsOpen = true;
-
-#if UNITY_WEBGL && !UNITY_EDITOR
-#else
-            ProcessMessageQueue();
-#endif
         }
 
         /// <summary>

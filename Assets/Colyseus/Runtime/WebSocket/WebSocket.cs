@@ -11,22 +11,26 @@ using AOT;
 using System.Runtime.InteropServices;
 using UnityEngine;
 using System.Collections;
+using System.Collections.Concurrent;
 
+[DefaultExecutionOrder(-1)]
 public class MainThreadUtil : MonoBehaviour
 {
-    private static MainThreadUtil Instance { get; set; }
+    public static event Action OnUpdate = delegate { };
 
 #if !UNITY_2023_1_OR_NEWER
+    private static MainThreadUtil Instance { get; set; }
     public static SynchronizationContext synchronizationContext { get; private set; }
 #endif
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
     public static void Setup()
     {
-        Instance = new GameObject("MainThreadUtil")
+        var instance = new GameObject("MainThreadUtil")
             .AddComponent<MainThreadUtil>();
 
 #if !UNITY_2023_1_OR_NEWER
+        Instance = instance;
         synchronizationContext = SynchronizationContext.Current;
 #endif
     }
@@ -43,6 +47,11 @@ public class MainThreadUtil : MonoBehaviour
     {
         gameObject.hideFlags = HideFlags.HideAndDontSave;
         DontDestroyOnLoad(gameObject);
+    }
+
+    void Update()
+    {
+        OnUpdate();
     }
 }
 
@@ -364,6 +373,34 @@ namespace NativeWebSocket
         private readonly object IncomingMessageLock = new object();
 
         private SemaphoreSlim m_Semaphore = new(1, 1);
+        private readonly ConcurrentQueue<Event> m_Events = new();
+
+        private bool dispatcherRegistered = false;
+
+        enum EventType
+        {
+            Open,
+            Message,
+            Error,
+            Close,
+        }
+
+        readonly struct Event
+        {
+            public EventType Type { get; }
+
+            public byte[] Data { get; }
+            public int Code { get; }
+            public string Message { get; }
+
+            public Event(EventType type, byte[] data, string message = default, int code = default)
+            {
+                Type = type;
+                Data = data;
+                Message = message;
+                Code = code;
+            }
+        }
 
         public WebSocket(string url, Dictionary<string, string> headers = null)
         {
@@ -402,15 +439,22 @@ namespace NativeWebSocket
                     m_Socket.Options.SetRequestHeader(header.Key, header.Value);
                 }
 
-                await m_Socket.ConnectAsync(uri, m_CancellationToken);
-                OnOpen?.Invoke();
+                if (!dispatcherRegistered)
+                {
+                    dispatcherRegistered = true;
+                    MainThreadUtil.OnUpdate += DispatchMessageQueue;
+                }
 
-                await Receive();
+                await m_Socket.ConnectAsync(uri, m_CancellationToken).ConfigureAwait(false);
+
+                m_Events.Enqueue(new Event(EventType.Open, default));
+
+                await Receive().ConfigureAwait(false);
             }
             catch (Exception ex)
             {
-                OnError?.Invoke(ex.Message);
-                OnClose?.Invoke((int)WebSocketCloseCode.Abnormal);
+                m_Events.Enqueue(new Event(EventType.Error, default, ex.Message));
+                m_Events.Enqueue(new Event(EventType.Close, default, default, (int)WebSocketCloseCode.Abnormal));
             }
             finally
             {
@@ -468,7 +512,7 @@ namespace NativeWebSocket
                         break;
                     default:
                         Debug.LogException(e);
-                        _events.Enqueue(new ErrorEvent(e));
+                        m_Events.Enqueue(new Event(EventType.Error, default, e.Message));
                         break;
                 }
             }
@@ -478,32 +522,43 @@ namespace NativeWebSocket
             }
         }
 
-        private List<byte[]> m_MessageList = new List<byte[]>();
-
         // simple dispatcher for queued messages.
-        public void DispatchMessageQueue()
+        void DispatchMessageQueue()
         {
-            if (m_MessageList.Count == 0)
+            while (m_Events.TryDequeue(out var evt))
             {
-                return;
+                try
+                {
+                    switch (evt.Type)
+                    {
+                        case EventType.Open:
+                            OnOpen?.Invoke();
+                            break;
+                        case EventType.Message:
+                            OnMessage?.Invoke(evt.Data);
+                            break;
+                        case EventType.Error:
+                            OnError?.Invoke(evt.Message);
+                            break;
+                        case EventType.Close:
+                            OnClose?.Invoke(evt.Code);
+                            break;
+                    }
+                }
+                catch (Exception e)
+                {
+                    Debug.LogException(e);
+                    OnError?.Invoke(e.Message);
+                }
             }
 
-            List<byte[]> messageListCopy;
-
-            lock (IncomingMessageLock)
+            if (m_Semaphore == null)
             {
-                messageListCopy = new List<byte[]>(m_MessageList);
-                m_MessageList.Clear();
-            }
-
-            var len = messageListCopy.Count;
-            for (int i = 0; i < len; i++)
-            {
-                OnMessage?.Invoke(messageListCopy[i]);
+                MainThreadUtil.OnUpdate -= DispatchMessageQueue;
             }
         }
 
-        public async Task Receive()
+        async Task Receive()
         {
             int closeCode = (int)WebSocketCloseCode.Abnormal;
 #if UNITY_2023_1_OR_NEWER
@@ -512,50 +567,37 @@ namespace NativeWebSocket
             await new WaitForBackgroundThread();
 #endif
 
-            ArraySegment<byte> buffer = new ArraySegment<byte>(new byte[8192]);
+            var buffer = new ArraySegment<byte>(new byte[8192]);
             try
             {
                 while (m_Socket.State == System.Net.WebSockets.WebSocketState.Open)
                 {
-                    WebSocketReceiveResult result = null;
+                    WebSocketReceiveResult result;
+                    using var stream = new MemoryStream();
 
-                    using (var ms = new MemoryStream())
+                    do
                     {
-                        do
-                        {
-                            result = await m_Socket.ReceiveAsync(buffer, m_CancellationToken);
-                            ms.Write(buffer.Array, buffer.Offset, result.Count);
-                        }
-                        while (!result.EndOfMessage);
+                        result = await m_Socket.ReceiveAsync(buffer, m_CancellationToken).ConfigureAwait(false);
+                        stream.Write(buffer.Array, buffer.Offset, result.Count);
+                    } while (!result.EndOfMessage);
 
-                        ms.Seek(0, SeekOrigin.Begin);
+                    await stream.FlushAsync(m_CancellationToken).ConfigureAwait(false);
 
-                        if (result.MessageType == WebSocketMessageType.Text)
+                    if (result.MessageType != WebSocketMessageType.Close)
+                    {
+                        m_Events.Enqueue(new Event(EventType.Message, stream.ToArray()));
+                    }
+                    else
+                    {
+                        if (State == WebSocketState.Open)
                         {
-                            lock (IncomingMessageLock)
-                            {
-                                m_MessageList.Add(ms.ToArray());
-                            }
-
-                            //using (var reader = new StreamReader(ms, Encoding.UTF8))
-                            //{
-                            //    string message = reader.ReadToEnd();
-                            //    OnMessage?.Invoke(this, new MessageEventArgs(message));
-                            //}
+                            await Close().ConfigureAwait(false);
                         }
-                        else if (result.MessageType == WebSocketMessageType.Binary)
+                        else
                         {
-                            lock (IncomingMessageLock)
-                            {
-                                m_MessageList.Add(ms.ToArray());
-                            }
+                            m_Events.Enqueue(new Event(EventType.Close, default, result.CloseStatusDescription, (int)result.CloseStatus));
                         }
-                        else if (result.MessageType == WebSocketMessageType.Close)
-                        {
-                            await Close();
-                            closeCode = (int)result.CloseStatus;
-                            break;
-                        }
+                        break;
                     }
                 }
             }
@@ -567,7 +609,7 @@ namespace NativeWebSocket
             {
                 m_Semaphore?.Dispose();
                 m_Semaphore = null;
-                
+
 #if UNITY_2023_1_OR_NEWER
                 await Awaitable.MainThreadAsync();
 #else
@@ -581,7 +623,7 @@ namespace NativeWebSocket
         {
             if (State == WebSocketState.Open)
             {
-                await m_Socket.CloseAsync(WebSocketCloseStatus.NormalClosure, string.Empty, m_CancellationToken);
+                await m_Socket.CloseAsync(WebSocketCloseStatus.NormalClosure, string.Empty, m_CancellationToken).ConfigureAwait(false);
             }
         }
     }
