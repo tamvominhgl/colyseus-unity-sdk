@@ -382,7 +382,6 @@ namespace NativeWebSocket
             Open,
             Message,
             Error,
-            Close,
         }
 
         readonly struct Event
@@ -390,7 +389,6 @@ namespace NativeWebSocket
             public EventType Type { get; }
 
             public byte[] Data { get; }
-            public int Code { get; }
             public string Message { get; }
 
             public Event(byte[] data)
@@ -398,15 +396,13 @@ namespace NativeWebSocket
                 Type = EventType.Message;
                 Data = data;
                 Message = default;
-                Code = default;
             }
 
-            public Event(EventType type, string message = default, int code = default)
+            public Event(EventType type, string message = default)
             {
                 Type = type;
                 Data = default;
                 Message = message;
-                Code = code;
             }
         }
 
@@ -461,8 +457,13 @@ namespace NativeWebSocket
             }
             catch (Exception ex)
             {
-                m_Events.Enqueue(new Event(EventType.Error, ex.Message));
-                m_Events.Enqueue(new Event(EventType.Close, default, (int)WebSocketCloseCode.Abnormal));
+#if UNITY_2023_1_OR_NEWER
+                await Awaitable.MainThreadAsync();
+#else
+                await new WaitForUpdate();
+#endif
+                OnError?.Invoke(ex.Message);
+                OnClose?.Invoke((int)WebSocketCloseCode.Abnormal);
             }
             finally
             {
@@ -550,9 +551,6 @@ namespace NativeWebSocket
                             break;
                         case EventType.Error:
                             OnError?.Invoke(evt.Message);
-                            break;
-                        case EventType.Close:
-                            OnClose?.Invoke(evt.Code);
                             break;
                     }
                 }
