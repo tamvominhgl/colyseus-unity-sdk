@@ -639,6 +639,8 @@ namespace NativeWebSocket
 #else
                 await new WaitForUpdate();
 #endif
+                // to make sure all data are dispatched before OnClose
+                DispatchMessageQueue();
                 OnClose?.Invoke(closeCode);
             }
         }
