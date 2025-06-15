@@ -66,6 +66,8 @@ namespace Colyseus
 
     public class ColyseusRoom<T> : IColyseusRoom where T : Schema.Schema
     {
+        private const int MinimumSpanLength = 8 * 1024;
+
         /// <summary>
         ///     Delegate for handling messages
         /// </summary>
@@ -263,9 +265,11 @@ namespace Colyseus
         {
 #if USE_MESSAGEPACK_CSHARP
             using var msgRental = SequencePool.Shared.Rent();
+            msgRental.Value.MinimumSpanLength = MinimumSpanLength;
             MessagePackSerializer.Serialize(msgRental.Value, message);
 
             using var rental = SequencePool.Shared.Rent();
+            rental.Value.MinimumSpanLength = MinimumSpanLength;
             var rentalMemory = rental.Value.GetMemory((int)msgRental.Value.Length + 2);
             var length = 0;
 
@@ -305,6 +309,7 @@ namespace Colyseus
             byte[] encodedType = Encoding.UTF8.GetBytes(type);
 
             using var rental = SequencePool.Shared.Rent();
+            rental.Value.MinimumSpanLength = MinimumSpanLength;
             var rentalMemory = rental.Value.GetMemory(encodedType.Length + 6);
             var length = 0;
 
@@ -332,11 +337,13 @@ namespace Colyseus
         {
 #if USE_MESSAGEPACK_CSHARP
             using var msgRental = SequencePool.Shared.Rent();
+            msgRental.Value.MinimumSpanLength = MinimumSpanLength;
             MessagePackSerializer.Serialize(msgRental.Value, message);
 
             byte[] encodedType = Encoding.UTF8.GetBytes(type);
 
             using var rental = SequencePool.Shared.Rent();
+            rental.Value.MinimumSpanLength = MinimumSpanLength;
             var rentalMemory = rental.Value.GetMemory((int)msgRental.Value.Length + encodedType.Length + 6);
             var length = 0;
 
@@ -375,6 +382,7 @@ namespace Colyseus
         {
 #if USE_MESSAGEPACK_CSHARP
             using var rental = SequencePool.Shared.Rent();
+            rental.Value.MinimumSpanLength = MinimumSpanLength;
             var rentalMemory = rental.Value.GetMemory(bytes.Length + 2);
             var length = 0;
 
@@ -408,6 +416,7 @@ namespace Colyseus
             byte[] encodedType = Encoding.UTF8.GetBytes(type);
 
             using var rental = SequencePool.Shared.Rent();
+            rental.Value.MinimumSpanLength = MinimumSpanLength;
             var rentalMemory = rental.Value.GetMemory(bytes.Length + encodedType.Length + 6);
             var length = 0;
 
