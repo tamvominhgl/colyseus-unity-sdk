@@ -522,12 +522,10 @@ namespace Colyseus
                     try
                     {
                         var remaining = (int)reader.Remaining;
-                        var bytes = ArrayPool<byte>.Shared.Rent(remaining);
+                        var bytes = new byte[remaining];
                         Decode.ReadBytes(ref reader, bytes, remaining);
 
                         Serializer.Handshake(bytes, 0);
-
-                        ArrayPool<byte>.Shared.Return(bytes);
                     }
                     catch (Exception e)
                     {
@@ -560,22 +558,18 @@ namespace Colyseus
             else if (code == ColyseusProtocol.ROOM_STATE)
             {
                 var remaining = (int)reader.Remaining;
-                var bytes = ArrayPool<byte>.Shared.Rent(remaining);
+                var bytes = new byte[remaining];
                 Decode.ReadBytes(ref reader, bytes, remaining);
 
                 SetState(bytes, 0);
-
-                ArrayPool<byte>.Shared.Return(bytes);
             }
             else if (code == ColyseusProtocol.ROOM_STATE_PATCH)
             {
                 var remaining = (int)reader.Remaining;
-                var bytes = ArrayPool<byte>.Shared.Rent(remaining);
+                var bytes = new byte[remaining];
                 Decode.ReadBytes(ref reader, bytes, remaining);
 
                 Patch(bytes, 0);
-
-                ArrayPool<byte>.Shared.Return(bytes);
             }
             else if (code == ColyseusProtocol.ROOM_DATA || code == ColyseusProtocol.ROOM_DATA_BYTES)
             {
@@ -596,7 +590,6 @@ namespace Colyseus
                 if (handler != null)
                 {
                     object message = null;
-                    byte[] bytes = default;
 
                     if (code == ColyseusProtocol.ROOM_DATA)
                     {
@@ -608,18 +601,13 @@ namespace Colyseus
                     else if (code == ColyseusProtocol.ROOM_DATA_BYTES)
                     {
                         var remaining = (int)reader.Remaining;
-                        bytes = ArrayPool<byte>.Shared.Rent(remaining);
+                        var bytes = new byte[remaining];
                         Decode.ReadBytes(ref reader, bytes, remaining);
 
                         message = bytes;
                     }
 
                     handler.Invoke(message);
-
-                    if (bytes != default)
-                    {
-                        ArrayPool<byte>.Shared.Return(bytes);
-                    }
                 }
                 else
                 {
