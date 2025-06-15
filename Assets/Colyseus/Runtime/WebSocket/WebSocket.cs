@@ -12,6 +12,8 @@ using System.Runtime.InteropServices;
 using UnityEngine;
 using System.Collections;
 using System.Collections.Concurrent;
+using Colyseus;
+using System.Buffers;
 
 [DefaultExecutionOrder(-1)]
 public class MainThreadUtil : MonoBehaviour
@@ -101,7 +103,11 @@ public class WaitForUpdate : CustomYieldInstruction
 namespace NativeWebSocket
 {
     public delegate void WebSocketOpenEventHandler();
+#if USE_MESSAGEPACK_CSHARP
+    public delegate void WebSocketMessageEventHandler(ReadOnlySequence<byte> bytes);
+#else
     public delegate void WebSocketMessageEventHandler(byte[] data);
+#endif
     public delegate void WebSocketErrorEventHandler(string errorMsg);
     public delegate void WebSocketCloseEventHandler(int closeCode);
 
@@ -389,12 +395,22 @@ namespace NativeWebSocket
             public EventType Type { get; }
 
             public byte[] Data { get; }
+            public SequencePool.Rental Rental { get; }
             public string Message { get; }
 
             public Event(byte[] data)
             {
                 Type = EventType.Message;
                 Data = data;
+                Rental = default;
+                Message = default;
+            }
+
+            public Event(SequencePool.Rental rental)
+            {
+                Type = EventType.Message;
+                Data = default;
+                Rental = rental;
                 Message = default;
             }
 
@@ -402,6 +418,7 @@ namespace NativeWebSocket
             {
                 Type = type;
                 Data = default;
+                Rental = default;
                 Message = message;
             }
         }
@@ -547,7 +564,14 @@ namespace NativeWebSocket
                             OnOpen?.Invoke();
                             break;
                         case EventType.Message:
+#if USE_MESSAGEPACK_CSHARP
+                            {
+                                using var rental = evt.Rental;
+                                OnMessage?.Invoke(rental.Value);
+                            }
+#else
                             OnMessage?.Invoke(evt.Data);
+#endif
                             break;
                         case EventType.Error:
                             OnError?.Invoke(evt.Message);
@@ -576,30 +600,31 @@ namespace NativeWebSocket
             await new WaitForBackgroundThread();
 #endif
 
-            var buffer = new ArraySegment<byte>(new byte[8192]);
+            SequencePool.Rental rental = default;
+
             try
             {
                 while (m_Socket.State == System.Net.WebSockets.WebSocketState.Open)
                 {
-                    WebSocketReceiveResult result;
-                    using var stream = new MemoryStream();
+                    ValueWebSocketReceiveResult result;
+                    rental = SequencePool.Shared.Rent();
 
                     do
                     {
-                        result = await m_Socket.ReceiveAsync(buffer, m_CancellationToken).ConfigureAwait(false);
-                        stream.Write(buffer.Array, buffer.Offset, result.Count);
+                        var memory = rental.Value.GetMemory(8192);
+                        result = await m_Socket.ReceiveAsync(memory, m_CancellationToken).ConfigureAwait(false);
+                        rental.Value.Advance(result.Count);
                     } while (!result.EndOfMessage);
-
-                    await stream.FlushAsync(m_CancellationToken).ConfigureAwait(false);
 
                     if (result.MessageType != WebSocketMessageType.Close)
                     {
-                        m_Events.Enqueue(new Event(stream.ToArray()));
+                        m_Events.Enqueue(new Event(rental));
+                        rental = default;
                     }
                     else
                     {
                         await Close().ConfigureAwait(false);
-                        closeCode = (int)result.CloseStatus;
+                        closeCode = (int)m_Socket.CloseStatus;
                         break;
                     }
                 }
@@ -610,6 +635,8 @@ namespace NativeWebSocket
             }
             finally
             {
+                rental.Dispose();
+
 #if UNITY_2023_1_OR_NEWER
                 await Awaitable.MainThreadAsync();
 #else

@@ -1,101 +1,21 @@
 using System;
+using System.Buffers;
 using System.Text;
 using MiscUtil.Conversion;
 
 namespace Colyseus.Schema.Utils
 {
-	public partial class Decode
-	{
-        public static LittleEndianBitConverter bitConverter = new LittleEndianBitConverter();
-
-        /// <summary>
-        ///     Decodes incoming data into an <see cref="object" /> based off of the <paramref name="type" /> provided
-        /// </summary>
-        /// <param name="type">What type of <see cref="object" /> we expect this data to be.
-        ///     <para>Will determine the Decode method used</para>
-        /// </param>
-        /// <param name="bytes">The incoming data</param>
-        /// <param name="it">The iterator who's <see cref="Iterator.Offset" /> will be used to Decode the data</param>
-        /// <returns>A decoded <see cref="object" /> that has been decoded with a <paramref name="type" /> specified method</returns>
-        public static object DecodePrimitiveType(string type, byte[] bytes, Iterator it)
-        {
-            if (type == "string")
-            {
-                return DecodeString(bytes, it);
-            }
-
-            if (type == "number")
-            {
-                return DecodeNumber(bytes, it);
-            }
-
-            if (type == "int8")
-            {
-                return DecodeInt8(bytes, it);
-            }
-
-            if (type == "uint8")
-            {
-                return DecodeUint8(bytes, it);
-            }
-
-            if (type == "int16")
-            {
-                return DecodeInt16(bytes, it);
-            }
-
-            if (type == "uint16")
-            {
-                return DecodeUint16(bytes, it);
-            }
-
-            if (type == "int32")
-            {
-                return DecodeInt32(bytes, it);
-            }
-
-            if (type == "uint32")
-            {
-                return DecodeUint32(bytes, it);
-            }
-
-            if (type == "int64")
-            {
-                return DecodeInt64(bytes, it);
-            }
-
-            if (type == "uint64")
-            {
-                return DecodeUint64(bytes, it);
-            }
-
-            if (type == "float32")
-            {
-                return DecodeFloat32(bytes, it);
-            }
-
-            if (type == "float64")
-            {
-                return DecodeFloat64(bytes, it);
-            }
-
-            if (type == "boolean")
-            {
-                return DecodeBoolean(bytes, it);
-            }
-
-            return null;
-        }
-
+    public partial class Decode
+    {
         /// <summary>
         ///     Decode method to decode <paramref name="bytes" /> into a <see cref="float" />
         /// </summary>
         /// <param name="bytes">The incoming data</param>
         /// <param name="it">The iterator who's <see cref="Iterator.Offset" /> will be used to Decode the data</param>
         /// <returns><paramref name="bytes" /> decoded into a <see cref="float" /></returns>
-        public static float DecodeNumber(byte[] bytes, Iterator it)
+        public static float DecodeNumber(SequenceReader<byte> reader)
         {
-            byte prefix = bytes[it.Offset++];
+            reader.TryRead(out byte prefix);
 
             if (prefix < 0x80)
             {
@@ -106,61 +26,61 @@ namespace Colyseus.Schema.Utils
             if (prefix == 0xca)
             {
                 // float 32
-                return DecodeFloat32(bytes, it);
+                return DecodeFloat32(reader);
             }
 
             if (prefix == 0xcb)
             {
                 // float 64
-                return (float)DecodeFloat64(bytes, it);
+                return (float)DecodeFloat64(reader);
             }
 
             if (prefix == 0xcc)
             {
                 // uint 8
-                return DecodeUint8(bytes, it);
+                return DecodeUint8(reader);
             }
 
             if (prefix == 0xcd)
             {
                 // uint 16
-                return DecodeUint16(bytes, it);
+                return DecodeUint16(reader);
             }
 
             if (prefix == 0xce)
             {
                 // uint 32
-                return DecodeUint32(bytes, it);
+                return DecodeUint32(reader);
             }
 
             if (prefix == 0xcf)
             {
                 // uint 64
-                return DecodeUint64(bytes, it);
+                return DecodeUint64(reader);
             }
 
             if (prefix == 0xd0)
             {
                 // int 8
-                return DecodeInt8(bytes, it);
+                return DecodeInt8(reader);
             }
 
             if (prefix == 0xd1)
             {
                 // int 16
-                return DecodeInt16(bytes, it);
+                return DecodeInt16(reader);
             }
 
             if (prefix == 0xd2)
             {
                 // int 32
-                return DecodeInt32(bytes, it);
+                return DecodeInt32(reader);
             }
 
             if (prefix == 0xd3)
             {
                 // int 64
-                return DecodeInt64(bytes, it);
+                return DecodeInt64(reader);
             }
 
             if (prefix > 0xdf)
@@ -178,9 +98,9 @@ namespace Colyseus.Schema.Utils
         /// <param name="bytes">The incoming data</param>
         /// <param name="it">The iterator who's <see cref="Iterator.Offset" /> will be used to Decode the data</param>
         /// <returns><paramref name="bytes" /> decoded into an 8-bit <see cref="int" /></returns>
-        public static sbyte DecodeInt8(byte[] bytes, Iterator it)
+        public static sbyte DecodeInt8(SequenceReader<byte> reader)
         {
-            return Convert.ToSByte((DecodeUint8(bytes, it) << 24) >> 24);
+            return Convert.ToSByte(DecodeUint8(reader));
         }
 
         /// <summary>
@@ -189,9 +109,10 @@ namespace Colyseus.Schema.Utils
         /// <param name="bytes">The incoming data</param>
         /// <param name="it">The iterator who's <see cref="Iterator.Offset" /> will be used to Decode the data</param>
         /// <returns><paramref name="bytes" /> decoded into an 8-bit <see cref="uint" /></returns>
-        public static byte DecodeUint8(byte[] bytes, Iterator it)
+        public static byte DecodeUint8(SequenceReader<byte> reader)
         {
-            return bytes[it.Offset++];
+            reader.TryRead(out byte value);
+            return value;
         }
 
         /// <summary>
@@ -200,10 +121,9 @@ namespace Colyseus.Schema.Utils
         /// <param name="bytes">The incoming data</param>
         /// <param name="it">The iterator who's <see cref="Iterator.Offset" /> will be used to Decode the data</param>
         /// <returns><paramref name="bytes" /> decoded into a 16-bit <see cref="int" /></returns>
-        public static short DecodeInt16(byte[] bytes, Iterator it)
+        public static short DecodeInt16(SequenceReader<byte> reader)
         {
-            short value = bitConverter.ToInt16(bytes, it.Offset);
-            it.Offset += 2;
+            reader.TryReadLittleEndian(out short value);
             return value;
         }
 
@@ -213,11 +133,9 @@ namespace Colyseus.Schema.Utils
         /// <param name="bytes">The incoming data</param>
         /// <param name="it">The iterator who's <see cref="Iterator.Offset" /> will be used to Decode the data</param>
         /// <returns><paramref name="bytes" /> decoded into a 16-bit <see cref="uint" /></returns>
-        public static ushort DecodeUint16(byte[] bytes, Iterator it)
+        public static ushort DecodeUint16(SequenceReader<byte> reader)
         {
-            ushort value = bitConverter.ToUInt16(bytes, it.Offset);
-            it.Offset += 2;
-            return value;
+            return Convert.ToUInt16(DecodeInt16(reader));
         }
 
         /// <summary>
@@ -226,10 +144,9 @@ namespace Colyseus.Schema.Utils
         /// <param name="bytes">The incoming data</param>
         /// <param name="it">The iterator who's <see cref="Iterator.Offset" /> will be used to Decode the data</param>
         /// <returns><paramref name="bytes" /> decoded into a 32-bit <see cref="int" /></returns>
-        public static int DecodeInt32(byte[] bytes, Iterator it)
+        public static int DecodeInt32(SequenceReader<byte> reader)
         {
-            int value = bitConverter.ToInt32(bytes, it.Offset);
-            it.Offset += 4;
+            reader.TryReadLittleEndian(out int value);
             return value;
         }
 
@@ -239,11 +156,9 @@ namespace Colyseus.Schema.Utils
         /// <param name="bytes">The incoming data</param>
         /// <param name="it">The iterator who's <see cref="Iterator.Offset" /> will be used to Decode the data</param>
         /// <returns><paramref name="bytes" /> decoded into a 32-bit <see cref="uint" /></returns>
-        public static uint DecodeUint32(byte[] bytes, Iterator it)
+        public static uint DecodeUint32(SequenceReader<byte> reader)
         {
-            uint value = bitConverter.ToUInt32(bytes, it.Offset);
-            it.Offset += 4;
-            return value;
+            return Convert.ToUInt32(DecodeInt32(reader));
         }
 
         /// <summary>
@@ -252,10 +167,12 @@ namespace Colyseus.Schema.Utils
         /// <param name="bytes">The incoming data</param>
         /// <param name="it">The iterator who's <see cref="Iterator.Offset" /> will be used to Decode the data</param>
         /// <returns><paramref name="bytes" /> decoded into a 32-bit <see cref="float" /></returns>
-        public static float DecodeFloat32(byte[] bytes, Iterator it)
+        public static float DecodeFloat32(SequenceReader<byte> reader)
         {
-            float value = bitConverter.ToSingle(bytes, it.Offset);
-            it.Offset += 4;
+            var bytes = ArrayPool<byte>.Shared.Rent(4);
+            reader.TryCopyTo(new Span<byte>(bytes));
+            var value = bitConverter.ToSingle(bytes, 0);
+            ArrayPool<byte>.Shared.Return(bytes);
             return value;
         }
 
@@ -265,10 +182,12 @@ namespace Colyseus.Schema.Utils
         /// <param name="bytes">The incoming data</param>
         /// <param name="it">The iterator who's <see cref="Iterator.Offset" /> will be used to Decode the data</param>
         /// <returns><paramref name="bytes" /> decoded into a 64-bit <see cref="float" /></returns>
-        public static double DecodeFloat64(byte[] bytes, Iterator it)
+        public static double DecodeFloat64(SequenceReader<byte> reader)
         {
-            double value = bitConverter.ToDouble(bytes, it.Offset);
-            it.Offset += 8;
+            var bytes = ArrayPool<byte>.Shared.Rent(8);
+            reader.TryCopyTo(new Span<byte>(bytes));
+            var value = bitConverter.ToDouble(bytes, 0);
+            ArrayPool<byte>.Shared.Return(bytes);
             return value;
         }
 
@@ -278,10 +197,9 @@ namespace Colyseus.Schema.Utils
         /// <param name="bytes">The incoming data</param>
         /// <param name="it">The iterator who's <see cref="Iterator.Offset" /> will be used to Decode the data</param>
         /// <returns><paramref name="bytes" /> decoded into a 64-bit <see cref="int" /></returns>
-        public static long DecodeInt64(byte[] bytes, Iterator it)
+        public static long DecodeInt64(SequenceReader<byte> reader)
         {
-            long value = bitConverter.ToInt64(bytes, it.Offset);
-            it.Offset += 8;
+            reader.TryReadLittleEndian(out long value);
             return value;
         }
 
@@ -291,11 +209,9 @@ namespace Colyseus.Schema.Utils
         /// <param name="bytes">The incoming data</param>
         /// <param name="it">The iterator who's <see cref="Iterator.Offset" /> will be used to Decode the data</param>
         /// <returns><paramref name="bytes" /> decoded into a 64-bit <see cref="uint" /></returns>
-        public static ulong DecodeUint64(byte[] bytes, Iterator it)
+        public static ulong DecodeUint64(SequenceReader<byte> reader)
         {
-            ulong value = bitConverter.ToUInt64(bytes, it.Offset);
-            it.Offset += 8;
-            return value;
+            return Convert.ToUInt64(DecodeInt64(reader));
         }
 
         /// <summary>
@@ -304,9 +220,9 @@ namespace Colyseus.Schema.Utils
         /// <param name="bytes">The incoming data</param>
         /// <param name="it">The iterator who's <see cref="Iterator.Offset" /> will be used to Decode the data</param>
         /// <returns><paramref name="bytes" /> decoded into a <see cref="bool" /></returns>
-        public static bool DecodeBoolean(byte[] bytes, Iterator it)
+        public static bool DecodeBoolean(SequenceReader<byte> reader)
         {
-            return DecodeUint8(bytes, it) > 0;
+            return DecodeUint8(reader) > 0;
         }
 
         /// <summary>
@@ -315,9 +231,9 @@ namespace Colyseus.Schema.Utils
         /// <param name="bytes">The incoming data</param>
         /// <param name="it">The iterator who's <see cref="Iterator.Offset" /> will be used to Decode the data</param>
         /// <returns><paramref name="bytes" /> decoded into a <see cref="string" /></returns>
-        public static string DecodeString(byte[] bytes, Iterator it)
+        public static string DecodeString(SequenceReader<byte> reader)
         {
-            int prefix = bytes[it.Offset++];
+            reader.TryRead(out byte prefix);
 
             int length;
             if (prefix < 0xc0)
@@ -327,51 +243,67 @@ namespace Colyseus.Schema.Utils
             }
             else if (prefix == 0xd9)
             {
-                length = (int)DecodeUint8(bytes, it);
+                length = DecodeUint8(reader);
             }
             else if (prefix == 0xda)
             {
-                length = DecodeUint16(bytes, it);
+                length = DecodeUint16(reader);
             }
             else if (prefix == 0xdb)
             {
-                length = (int)DecodeUint32(bytes, it);
+                length = (int)DecodeUint32(reader);
             }
             else
             {
                 length = 0;
             }
 
-            string str = Encoding.UTF8.GetString(bytes, it.Offset, length);
-            it.Offset += length;
-
-            return str;
+            return DecodeString(reader, length);
         }
 
-        /// <summary>
-        ///     Checks if
-        ///     <code>bytes[it.Offset] == (byte)SPEC.SWITCH_TO_STRUCTURE</code>
-        /// </summary>
-        /// <param name="bytes">The incoming data</param>
-        /// <param name="it">The iterator who's <see cref="Iterator.Offset" /> will be used to Decode the data</param>
-        /// <returns>
-        ///     True if the current <see cref="Iterator.Offset" /> works with this array of <paramref name="bytes" />, false
-        ///     otherwise
-        /// </returns>
-        public static bool SwitchStructureCheck(byte[] bytes, Iterator it)
+        public static string DecodeString(SequenceReader<byte> reader, int byteLength)
         {
-            return bytes[it.Offset] == (byte)SPEC.SWITCH_TO_STRUCTURE;
-        }
+            var unreadSpan = reader.UnreadSpan;
+            if (unreadSpan.Length >= byteLength)
+            {
+                var str = Encoding.UTF8.GetString(unreadSpan[..byteLength]);
+                reader.Advance(byteLength);
+                return str;
+            }
+            else
+            {
+                int remainingByteLength = byteLength;
+                int maxCharLength = Encoding.UTF8.GetMaxCharCount(remainingByteLength);
+                char[] charArray = ArrayPool<char>.Shared.Rent(maxCharLength);
+                Decoder decoder = Encoding.UTF8.GetDecoder();
 
+                int initializedChars = 0;
+                while (remainingByteLength > 0)
+                {
+                    int bytesRead = Math.Min(remainingByteLength, reader.UnreadSpan.Length);
+                    remainingByteLength -= bytesRead;
+                    bool flush = remainingByteLength == 0;
+
+                    initializedChars += decoder.GetChars(reader.UnreadSpan.Slice(0, bytesRead), charArray.AsSpan(initializedChars), flush);
+
+                    reader.Advance(bytesRead);
+                }
+
+                var str = new string(charArray, 0, initializedChars);
+                ArrayPool<char>.Shared.Return(charArray);
+                return str;
+            }
+        }
+        
         /// <summary>
         ///     Checks if the incoming <paramref name="bytes" /> is a number
         /// </summary>
         /// <param name="bytes">The incoming data</param>
         /// <param name="it">The iterator who's <see cref="Iterator.Offset" /> will be used to Decode the data</param>
         /// <returns>True if <paramref name="bytes" /> can be resolved into a number, false otherwise</returns>
-        public static bool NumberCheck(byte[] bytes, Iterator it)
+        public static bool NumberCheck(SequenceReader<byte> reader)
         {
-            byte prefix = bytes[it.Offset];
+            reader.TryPeek(out byte prefix);
             return prefix < 0x80 || prefix >= 0xca && prefix <= 0xd3;
         }
     }

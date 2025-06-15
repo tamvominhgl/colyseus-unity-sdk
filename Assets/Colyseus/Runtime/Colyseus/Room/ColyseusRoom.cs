@@ -6,6 +6,8 @@ using System.Threading.Tasks;
 using Colyseus.Schema;
 using NativeWebSocket;
 using UnityEngine;
+using System.Buffers;
+
 #if USE_MESSAGEPACK_CSHARP
 using MessagePack;
 #else
@@ -230,7 +232,7 @@ namespace Colyseus
 	        // Connection.OnError += (code, message) => OnError?.Invoke(code, message);
 
 	        room.Connection.OnError += message => room.OnError?.Invoke(0, message);
-	        room.Connection.OnMessage += bytes => room.ParseMessage(bytes);
+	        room.Connection.OnMessage += bytes => room.ParseMessage(new SequenceReader<byte>(bytes));
         }
 
         /// <summary>
@@ -471,6 +473,154 @@ namespace Colyseus
         ///     The function that will be called when the <see cref="Connection" /> receives a message
         /// </summary>
         /// <param name="bytes">The message as provided from the <see cref="Connection" /></param>
+#if USE_MESSAGEPACK_CSHARP
+        async void OnHandShakeException(string message)
+        {
+            await Leave(false);
+            OnError?.Invoke(ColyseusErrorCode.SCHEMA_MISMATCH, message);
+        }
+
+        protected void ParseMessage(SequenceReader<byte> reader)
+        {
+            byte code = Decode.DecodeUint8(reader);
+
+            if (code == ColyseusProtocol.JOIN_ROOM)
+            {
+                byte tokenLen = Decode.DecodeUint8(reader);
+                string reconnectionToken = Decode.DecodeString(reader, tokenLen);
+
+                tokenLen = Decode.DecodeUint8(reader);
+                SerializerId = Decode.DecodeString(reader, tokenLen);
+
+                if (SerializerId == "schema")
+                {
+                    try
+                    {
+                        Serializer = new ColyseusSchemaSerializer<T>();
+                    }
+                    catch (Exception e)
+                    {
+                        DisplaySerializerErrorHelp(e,
+                            "Consider using the \"schema-codegen\" and providing the same room state for matchmaking instead of \"" +
+                            typeof(T).Name + "\"");
+                    }
+                }
+                else if (SerializerId == "fossil-delta")
+                {
+                    Debug.LogError(
+                        "FossilDelta Serialization has been deprecated. It is highly recommended that you update your code to use the Schema Serializer. Otherwise, you must use an earlier version of the Colyseus plugin");
+                }
+                else
+                {
+                    Serializer = (IColyseusSerializer<T>)new NoneSerializer();
+                }
+
+                if (reader.Remaining > 0)
+                {
+                    try
+                    {
+                        var bytes = ArrayPool<byte>.Shared.Rent((int)reader.Remaining);
+                        reader.TryCopyTo(new Span<byte>(bytes));
+
+                        Serializer.Handshake(bytes, 0);
+
+                        ArrayPool<byte>.Shared.Return(bytes);
+                    }
+                    catch (Exception e)
+                    {
+                        OnHandShakeException(e.Message);
+                        return;
+                    }
+                }
+
+                ReconnectionToken = new ReconnectionToken()
+                {
+                    RoomId = RoomId,
+                    Token = reconnectionToken
+                };
+
+                OnJoin?.Invoke();
+
+                // Acknowledge JOIN_ROOM
+                _ = Connection.Send(new[] { ColyseusProtocol.JOIN_ROOM });
+            }
+            else if (code == ColyseusProtocol.ERROR)
+            {
+                float errorCode = Decode.DecodeNumber(reader);
+                string errorMessage = Decode.DecodeString(reader);
+                OnError?.Invoke((int)errorCode, errorMessage);
+            }
+            else if (code == ColyseusProtocol.LEAVE_ROOM)
+            {
+                _ = Leave();
+            }
+            else if (code == ColyseusProtocol.ROOM_STATE)
+            {
+                var bytes = ArrayPool<byte>.Shared.Rent((int)reader.Remaining);
+                reader.TryCopyTo(new Span<byte>(bytes));
+
+                SetState(bytes, 0);
+
+                ArrayPool<byte>.Shared.Return(bytes);
+}
+            else if (code == ColyseusProtocol.ROOM_STATE_PATCH)
+            {
+                var bytes = ArrayPool<byte>.Shared.Rent((int)reader.Remaining);
+                reader.TryCopyTo(new Span<byte>(bytes));
+
+                Patch(bytes, 0);
+
+                ArrayPool<byte>.Shared.Return(bytes);
+            }
+            else if (code == ColyseusProtocol.ROOM_DATA || code == ColyseusProtocol.ROOM_DATA_BYTES)
+            {
+                IColyseusMessageHandler handler = null;
+                object type;
+
+                if (Decode.NumberCheck(reader))
+                {
+                    type = Decode.DecodeNumber(reader);
+                    OnMessageHandlers.TryGetValue("i" + type, out handler);
+                }
+                else
+                {
+                    type = Decode.DecodeString(reader);
+                    OnMessageHandlers.TryGetValue(type.ToString(), out handler);
+                }
+
+                if (handler != null)
+                {
+                    object message = null;
+                    byte[] bytes = default;
+
+                    if (code == ColyseusProtocol.ROOM_DATA)
+                    {
+                        if (reader.Remaining > 0)
+                        {
+                            message = handler.Parse(reader.Sequence.Slice(reader.Consumed));
+                        }
+                    }
+                    else if (code == ColyseusProtocol.ROOM_DATA_BYTES)
+                    {
+                        bytes = ArrayPool<byte>.Shared.Rent((int)reader.Remaining);
+                        reader.TryCopyTo(new Span<byte>(bytes));
+                        message = bytes;
+                    }
+
+                    handler.Invoke(message);
+
+                    if (bytes != default)
+                    {
+                        ArrayPool<byte>.Shared.Return(bytes);
+                    }
+                }
+                else
+                {
+                    Debug.LogWarning("room.OnMessage not registered for: '" + type + "'");
+                }
+            }
+        }
+#else
         protected async void ParseMessage(byte[] bytes)
         {
             byte code = bytes[0];
@@ -575,13 +725,6 @@ namespace Colyseus
 
                     if ( code == ColyseusProtocol.ROOM_DATA )
                     {
-#if USE_MESSAGEPACK_CSHARP
-                        if (bytes.Length > it.Offset)
-                        {
-                            handler.ParseAndInvoke(new MemoryStream(bytes, it.Offset, bytes.Length - it.Offset, false));
-                            return;
-                        }
-#else
                         //
                         // MsgPack deserialization can be optimized:
                         // https://github.com/deniszykov/msgpack-unity3d/issues/23
@@ -590,7 +733,6 @@ namespace Colyseus
                             ? MsgPack.Deserialize(handler.Type,
                                 new MemoryStream(bytes, it.Offset, bytes.Length - it.Offset, false))
                             : null;
-#endif
                     }
                     else if ( code == ColyseusProtocol.ROOM_DATA_BYTES )
                     {
@@ -606,6 +748,7 @@ namespace Colyseus
                 }
             }
         }
+#endif
 
         /// <summary>
         ///     Update the state with just the new changes to the state

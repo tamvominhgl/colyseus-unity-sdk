@@ -1,4 +1,6 @@
 using System;
+using System.Buffers;
+
 #if USE_MESSAGEPACK_CSHARP
 using System.IO;
 using MessagePack;
@@ -23,7 +25,7 @@ namespace Colyseus
         void Invoke(object message);
 
 #if USE_MESSAGEPACK_CSHARP
-        void ParseAndInvoke(MemoryStream stream);
+        object Parse(ReadOnlySequence<byte> sequence);
 #endif
     }
 
@@ -48,10 +50,9 @@ namespace Colyseus
         }
 
 #if USE_MESSAGEPACK_CSHARP
-        public void ParseAndInvoke(MemoryStream stream)
+        public object Parse(ReadOnlySequence<byte> sequence)
         {
-            var message = MessagePackSerializer.Deserialize<T>(stream);
-            Action.Invoke((T) message);
+            return MessagePackSerializer.Deserialize<T>(sequence);
         }
 #endif
 
