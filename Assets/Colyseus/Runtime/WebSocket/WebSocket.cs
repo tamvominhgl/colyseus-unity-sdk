@@ -492,6 +492,8 @@ namespace NativeWebSocket
 
                 m_Semaphore?.Dispose();
                 m_Semaphore = null;
+
+                MainThreadUtil.OnUpdate -= DispatchMessageQueue;
             }
         }
 
@@ -583,11 +585,6 @@ namespace NativeWebSocket
                     Debug.LogException(e);
                     OnError?.Invoke(e.Message);
                 }
-            }
-
-            if (m_Semaphore == null)
-            {
-                MainThreadUtil.OnUpdate -= DispatchMessageQueue;
             }
         }
 
