@@ -309,13 +309,7 @@ namespace Colyseus
             var length = 0;
 
             byte[] encodedType = Encoding.UTF8.GetBytes(type);
-            byte[] initialBytes = Encode.getInitialBytesFromEncodedType(encodedType, ColyseusProtocol.ROOM_DATA);
-
-            initialBytes.CopyTo(rentalMemory[length..]);
-            length += initialBytes.Length;
-
-            encodedType.CopyTo(rentalMemory[length..]);
-            length += encodedType.Length;
+            length += Encode.setBytesWithEncodedType(ColyseusProtocol.ROOM_DATA, encodedType, rentalMemory);
 
             foreach (var readOnlyMemory in msgRental.Value.AsReadOnlySequence)
             {
