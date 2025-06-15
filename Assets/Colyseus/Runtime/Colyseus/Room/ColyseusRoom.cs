@@ -300,12 +300,33 @@ namespace Colyseus
         /// <param name="message">Message payload</param>
         public async Task Send<MessageType>(string type, MessageType message)
         {
-            MemoryStream serializationOutput = new MemoryStream();
 #if USE_MESSAGEPACK_CSHARP
-            MessagePackSerializer.Serialize(serializationOutput, message);
+            using var msgRental = SequencePool.Shared.Rent();
+            MessagePackSerializer.Serialize(msgRental.Value, message);
+
+            using var rental = SequencePool.Shared.Rent();
+            var rentalMemory = rental.Value.GetMemory((int)msgRental.Value.Length + type.Length * 2);
+            var length = 0;
+
+            byte[] encodedType = Encoding.UTF8.GetBytes(type);
+            byte[] initialBytes = Encode.getInitialBytesFromEncodedType(encodedType, ColyseusProtocol.ROOM_DATA);
+
+            initialBytes.CopyTo(rentalMemory[length..]);
+            length += initialBytes.Length;
+
+            encodedType.CopyTo(rentalMemory[length..]);
+            length += encodedType.Length;
+
+            foreach (var readOnlyMemory in msgRental.Value.AsReadOnlySequence)
+            {
+                readOnlyMemory.CopyTo(rentalMemory[length..]);
+                length += readOnlyMemory.Length;
+            }
+
+            await Connection.Send(rentalMemory[..length]);
 #else
+            MemoryStream serializationOutput = new MemoryStream();
             MsgPack.Serialize(message, serializationOutput, SerializationOptions.SuppressTypeInformation);
-#endif
 
             byte[] encodedType = Encoding.UTF8.GetBytes(type);
             byte[] initialBytes = Encode.getInitialBytesFromEncodedType(encodedType, ColyseusProtocol.ROOM_DATA);
@@ -317,6 +338,7 @@ namespace Colyseus
             Buffer.BlockCopy(encodedMessage, 0, bytes, initialBytes.Length + encodedType.Length, encodedMessage.Length);
 
             await Connection.Send(bytes);
+#endif
         }
 
         /// <summary>

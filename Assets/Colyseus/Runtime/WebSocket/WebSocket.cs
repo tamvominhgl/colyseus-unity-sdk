@@ -493,7 +493,7 @@ namespace NativeWebSocket
         public Task SendText(string message)
             => SendMessage(WebSocketMessageType.Text, Encoding.UTF8.GetBytes(message));
 
-        private async Task SendMessage(WebSocketMessageType messageType, ReadOnlyMemory<byte> buffer)
+        protected async Task SendMessage(WebSocketMessageType messageType, ReadOnlyMemory<byte> buffer)
         {
             // Return control to the calling method immediately.
             // await Task.Yield ();

@@ -18,5 +18,10 @@ namespace Colyseus
         {
 
         }
+
+        public async Task Send(ReadOnlyMemory<byte> bytes)
+        {
+            await SendMessage(System.Net.WebSockets.WebSocketMessageType.Binary, bytes);
+        }
     }
 }
