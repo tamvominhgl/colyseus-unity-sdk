@@ -521,8 +521,9 @@ namespace Colyseus
                 {
                     try
                     {
-                        var bytes = ArrayPool<byte>.Shared.Rent((int)reader.Remaining);
-                        reader.TryCopyTo(new Span<byte>(bytes));
+                        var remaining = (int)reader.Remaining;
+                        var bytes = ArrayPool<byte>.Shared.Rent(remaining);
+                        Decode.ReadBytes(ref reader, bytes, remaining);
 
                         Serializer.Handshake(bytes, 0);
 
@@ -558,8 +559,9 @@ namespace Colyseus
             }
             else if (code == ColyseusProtocol.ROOM_STATE)
             {
-                var bytes = ArrayPool<byte>.Shared.Rent((int)reader.Remaining);
-                reader.TryCopyTo(new Span<byte>(bytes));
+                var remaining = (int)reader.Remaining;
+                var bytes = ArrayPool<byte>.Shared.Rent(remaining);
+                Decode.ReadBytes(ref reader, bytes, remaining);
 
                 SetState(bytes, 0);
 
@@ -567,8 +569,9 @@ namespace Colyseus
             }
             else if (code == ColyseusProtocol.ROOM_STATE_PATCH)
             {
-                var bytes = ArrayPool<byte>.Shared.Rent((int)reader.Remaining);
-                reader.TryCopyTo(new Span<byte>(bytes));
+                var remaining = (int)reader.Remaining;
+                var bytes = ArrayPool<byte>.Shared.Rent(remaining);
+                Decode.ReadBytes(ref reader, bytes, remaining);
 
                 Patch(bytes, 0);
 
@@ -604,8 +607,10 @@ namespace Colyseus
                     }
                     else if (code == ColyseusProtocol.ROOM_DATA_BYTES)
                     {
-                        bytes = ArrayPool<byte>.Shared.Rent((int)reader.Remaining);
-                        reader.TryCopyTo(new Span<byte>(bytes));
+                        var remaining = (int)reader.Remaining;
+                        bytes = ArrayPool<byte>.Shared.Rent(remaining);
+                        Decode.ReadBytes(ref reader, bytes, remaining);
+
                         message = bytes;
                     }
 
