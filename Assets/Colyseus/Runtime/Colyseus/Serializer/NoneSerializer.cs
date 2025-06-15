@@ -11,7 +11,7 @@ namespace Colyseus
         NoState state = new NoState();
 
         /// <inheritdoc />
-        public void SetState(byte[] rawEncodedState, int offset)
+        public void SetState(byte[] rawEncodedState, int offset, int length)
         {
         }
 
@@ -22,7 +22,7 @@ namespace Colyseus
         }
 
         /// <inheritdoc />
-        public void Patch(byte[] bytes, int offset)
+        public void Patch(byte[] bytes, int offset, int length)
         {
         }
 
@@ -32,7 +32,7 @@ namespace Colyseus
         }
 
         /// <inheritdoc />
-        public void Handshake(byte[] bytes, int offset)
+        public void Handshake(byte[] bytes, int offset, int length)
         {
         }
     }

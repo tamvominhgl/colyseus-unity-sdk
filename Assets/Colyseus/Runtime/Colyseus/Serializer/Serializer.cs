@@ -11,7 +11,7 @@ namespace Colyseus
         /// </summary>
         /// <param name="data">The incoming state data</param>
         /// <param name="offset">Offset for reading the incoming data</param>
-        void SetState(byte[] data, int offset);
+        void SetState(byte[] data, int offset, int length = 0);
 
         /// <summary>
         ///     Get the current state
@@ -24,7 +24,7 @@ namespace Colyseus
         /// </summary>
         /// <param name="data">The incoming state data</param>
         /// <param name="offset">Offset for reading the incoming data</param>
-        void Patch(byte[] data, int offset);
+        void Patch(byte[] data, int offset, int length = 0);
 
         /// <summary>
         ///     Clean-up functionality
@@ -36,6 +36,6 @@ namespace Colyseus
         /// </summary>
         /// <param name="bytes">The handshake data to serialize</param>
         /// <param name="offset">Offset for reading the incoming data</param>
-        void Handshake(byte[] bytes, int offset);
+        void Handshake(byte[] bytes, int offset, int length = 0);
     }
 }

@@ -242,9 +242,9 @@ namespace Colyseus
         /// <remarks>Invokes everything subscribed to <see cref="OnStateChange" /></remarks>
         /// <param name="encodedState">Byte array of the new state data</param>
         /// <param name="offset">Offset to provide the room's <see cref="Serializer" /></param>
-        public void SetState(byte[] encodedState, int offset)
+        public void SetState(byte[] encodedState, int offset, int length = 0)
         {
-            Serializer.SetState(encodedState, offset);
+            Serializer.SetState(encodedState, offset, length);
             OnStateChange?.Invoke(Serializer.GetState(), true);
         }
 
@@ -522,10 +522,12 @@ namespace Colyseus
                     try
                     {
                         var remaining = (int)reader.Remaining;
-                        var bytes = new byte[remaining];
+                        var bytes = ArrayPool<byte>.Shared.Rent(remaining);
                         Decode.ReadBytes(ref reader, bytes, remaining);
 
-                        Serializer.Handshake(bytes, 0);
+                        Serializer.Handshake(bytes, 0, remaining);
+
+                        ArrayPool<byte>.Shared.Return(bytes);
                     }
                     catch (Exception e)
                     {
@@ -558,18 +560,22 @@ namespace Colyseus
             else if (code == ColyseusProtocol.ROOM_STATE)
             {
                 var remaining = (int)reader.Remaining;
-                var bytes = new byte[remaining];
+                var bytes = ArrayPool<byte>.Shared.Rent(remaining);
                 Decode.ReadBytes(ref reader, bytes, remaining);
 
-                SetState(bytes, 0);
+                SetState(bytes, 0, remaining);
+
+                ArrayPool<byte>.Shared.Return(bytes);
             }
             else if (code == ColyseusProtocol.ROOM_STATE_PATCH)
             {
                 var remaining = (int)reader.Remaining;
-                var bytes = new byte[remaining];
+                var bytes = ArrayPool<byte>.Shared.Rent(remaining);
                 Decode.ReadBytes(ref reader, bytes, remaining);
 
-                Patch(bytes, 0);
+                Patch(bytes, 0, remaining);
+
+                ArrayPool<byte>.Shared.Return(bytes);
             }
             else if (code == ColyseusProtocol.ROOM_DATA || code == ColyseusProtocol.ROOM_DATA_BYTES)
             {
@@ -751,9 +757,9 @@ namespace Colyseus
         /// <remarks>Invokes everything subscribed to <see cref="OnStateChange" /></remarks>
         /// <param name="delta">The updates to the state</param>
         /// <param name="offset">Offset to provide the room's <see cref="Serializer" /></param>
-        protected void Patch(byte[] delta, int offset)
+        protected void Patch(byte[] delta, int offset, int length = 0)
         {
-            Serializer.Patch(delta, offset);
+            Serializer.Patch(delta, offset, length);
             OnStateChange?.Invoke(Serializer.GetState(), false);
         }
 

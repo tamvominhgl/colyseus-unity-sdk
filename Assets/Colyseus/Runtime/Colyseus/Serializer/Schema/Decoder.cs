@@ -30,7 +30,7 @@ namespace Colyseus.Schema
 		///     create a new one
 		/// </param>
 		/// <exception cref="Exception">If no decoding fails</exception>
-		public void Decode(byte[] bytes, Iterator it = null)
+		public void Decode(byte[] bytes, Iterator it = null, int length = 0)
 		{
 			if (it == null)
 			{
@@ -42,7 +42,7 @@ namespace Colyseus.Schema
 
 			AllChanges.Clear();
 
-			int totalBytes = bytes.Length;
+			int totalBytes = length > 0 ? it.Offset + length : bytes.Length;
 
 			while (it.Offset < totalBytes)
 			{

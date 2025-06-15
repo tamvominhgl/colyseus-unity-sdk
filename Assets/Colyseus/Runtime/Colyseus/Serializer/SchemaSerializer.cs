@@ -20,10 +20,10 @@ namespace Colyseus
 		protected Iterator It = new Iterator();
 
 		/// <inheritdoc />
-		public void SetState(byte[] data, int offset = 0)
+		public void SetState(byte[] data, int offset = 0, int length = 0)
 		{
 			It.Offset = offset;
-			Decoder.Decode(data, It);
+			Decoder.Decode(data, It, length);
 		}
 
 		/// <inheritdoc />
@@ -33,10 +33,10 @@ namespace Colyseus
 		}
 
 		/// <inheritdoc />
-		public void Patch(byte[] data, int offset = 0)
+		public void Patch(byte[] data, int offset = 0, int length = 0)
 		{
 			It.Offset = offset;
-			Decoder.Decode(data, It);
+			Decoder.Decode(data, It, length);
 		}
 
 		/// <inheritdoc />
@@ -47,7 +47,7 @@ namespace Colyseus
 		}
 
 		/// <inheritdoc />
-		public void Handshake(byte[] bytes, int offset)
+		public void Handshake(byte[] bytes, int offset, int length = 0)
 		{
 			System.Type targetType = typeof(T);
 
@@ -57,7 +57,7 @@ namespace Colyseus
 			Iterator it = new Iterator { Offset = offset };
 
 			var reflectionDecoder = new Decoder<Reflection>();
-			reflectionDecoder.Decode(bytes, it);
+			reflectionDecoder.Decode(bytes, it, length);
 
 			var reflection = reflectionDecoder.State;
 			var types = reflection.types.items.ToArray();
