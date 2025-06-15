@@ -232,7 +232,7 @@ namespace Colyseus
 	        // Connection.OnError += (code, message) => OnError?.Invoke(code, message);
 
 	        room.Connection.OnError += message => room.OnError?.Invoke(0, message);
-	        room.Connection.OnMessage += bytes => room.ParseMessage(new SequenceReader<byte>(bytes));
+	        room.Connection.OnMessage += bytes => room.ParseMessage(bytes);
         }
 
         /// <summary>
@@ -480,17 +480,19 @@ namespace Colyseus
             OnError?.Invoke(ColyseusErrorCode.SCHEMA_MISMATCH, message);
         }
 
-        protected void ParseMessage(SequenceReader<byte> reader)
+        protected void ParseMessage(ReadOnlySequence<byte> sequence)
         {
-            byte code = Decode.DecodeUint8(reader);
+            var reader = new SequenceReader<byte>(sequence);
+
+            byte code = Decode.DecodeUint8(ref reader);
 
             if (code == ColyseusProtocol.JOIN_ROOM)
             {
-                byte tokenLen = Decode.DecodeUint8(reader);
-                string reconnectionToken = Decode.DecodeString(reader, tokenLen);
+                byte tokenLen = Decode.DecodeUint8(ref reader);
+                string reconnectionToken = Decode.DecodeString(ref reader, tokenLen);
 
-                tokenLen = Decode.DecodeUint8(reader);
-                SerializerId = Decode.DecodeString(reader, tokenLen);
+                tokenLen = Decode.DecodeUint8(ref reader);
+                SerializerId = Decode.DecodeString(ref reader, tokenLen);
 
                 if (SerializerId == "schema")
                 {
@@ -546,8 +548,8 @@ namespace Colyseus
             }
             else if (code == ColyseusProtocol.ERROR)
             {
-                float errorCode = Decode.DecodeNumber(reader);
-                string errorMessage = Decode.DecodeString(reader);
+                float errorCode = Decode.DecodeNumber(ref reader);
+                string errorMessage = Decode.DecodeString(ref reader);
                 OnError?.Invoke((int)errorCode, errorMessage);
             }
             else if (code == ColyseusProtocol.LEAVE_ROOM)
@@ -562,7 +564,7 @@ namespace Colyseus
                 SetState(bytes, 0);
 
                 ArrayPool<byte>.Shared.Return(bytes);
-}
+            }
             else if (code == ColyseusProtocol.ROOM_STATE_PATCH)
             {
                 var bytes = ArrayPool<byte>.Shared.Rent((int)reader.Remaining);
@@ -577,14 +579,14 @@ namespace Colyseus
                 IColyseusMessageHandler handler = null;
                 object type;
 
-                if (Decode.NumberCheck(reader))
+                if (Decode.NumberCheck(ref reader))
                 {
-                    type = Decode.DecodeNumber(reader);
+                    type = Decode.DecodeNumber(ref reader);
                     OnMessageHandlers.TryGetValue("i" + type, out handler);
                 }
                 else
                 {
-                    type = Decode.DecodeString(reader);
+                    type = Decode.DecodeString(ref reader);
                     OnMessageHandlers.TryGetValue(type.ToString(), out handler);
                 }
 
