@@ -170,7 +170,7 @@ namespace Colyseus.Schema.Utils
         public static float DecodeFloat32(ref SequenceReader<byte> reader)
         {
             var bytes = ArrayPool<byte>.Shared.Rent(4);
-            ReadBytes(ref reader, bytes, 4);
+            ReadBytes(ref reader, new Span<byte>(bytes, 0, 4));
             var value = bitConverter.ToSingle(bytes, 0);
             ArrayPool<byte>.Shared.Return(bytes);
             return value;
@@ -185,7 +185,7 @@ namespace Colyseus.Schema.Utils
         public static double DecodeFloat64(ref SequenceReader<byte> reader)
         {
             var bytes = ArrayPool<byte>.Shared.Rent(8);
-            ReadBytes(ref reader, bytes, 8);
+            ReadBytes(ref reader, new Span<byte>(bytes, 0, 8));
             var value = bitConverter.ToDouble(bytes, 0);
             ArrayPool<byte>.Shared.Return(bytes);
             return value;
@@ -307,20 +307,16 @@ namespace Colyseus.Schema.Utils
             return prefix < 0x80 || prefix >= 0xca && prefix <= 0xd3;
         }
         
-        public static void ReadBytes(ref SequenceReader<byte> reader, Span<byte> dest, int byteLength)
+        public static bool ReadBytes(ref SequenceReader<byte> reader, Span<byte> dest)
         {
-            int remainingByteLength = byteLength;
-
-            while (remainingByteLength > 0 && reader.Remaining > 0)
+            if (reader.TryCopyTo(dest))
             {
-                var unreadSpan = reader.UnreadSpan;
-                int bytesRead = Math.Min(remainingByteLength, unreadSpan.Length);
-
-                unreadSpan.CopyTo(dest);
-
-                dest = dest[bytesRead..];
-                remainingByteLength -= bytesRead;
-                reader.Advance(bytesRead);
+                reader.Advance(dest.Length);
+                return true;
+            }
+            else
+            {
+                return false;
             }
         }
     }

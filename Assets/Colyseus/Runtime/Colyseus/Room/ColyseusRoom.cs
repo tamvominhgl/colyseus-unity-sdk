@@ -523,7 +523,7 @@ namespace Colyseus
                     {
                         var remaining = (int)reader.Remaining;
                         var bytes = ArrayPool<byte>.Shared.Rent(remaining);
-                        Decode.ReadBytes(ref reader, bytes, remaining);
+                        Decode.ReadBytes(ref reader, new Span<byte>(bytes, 0, remaining));
 
                         Serializer.Handshake(bytes, 0, remaining);
 
@@ -561,7 +561,7 @@ namespace Colyseus
             {
                 var remaining = (int)reader.Remaining;
                 var bytes = ArrayPool<byte>.Shared.Rent(remaining);
-                Decode.ReadBytes(ref reader, bytes, remaining);
+                Decode.ReadBytes(ref reader, new Span<byte>(bytes, 0, remaining));
 
                 SetState(bytes, 0, remaining);
 
@@ -571,7 +571,7 @@ namespace Colyseus
             {
                 var remaining = (int)reader.Remaining;
                 var bytes = ArrayPool<byte>.Shared.Rent(remaining);
-                Decode.ReadBytes(ref reader, bytes, remaining);
+                Decode.ReadBytes(ref reader, new Span<byte>(bytes, 0, remaining));
 
                 Patch(bytes, 0, remaining);
 
@@ -608,7 +608,7 @@ namespace Colyseus
                     {
                         var remaining = (int)reader.Remaining;
                         var bytes = new byte[remaining];
-                        Decode.ReadBytes(ref reader, bytes, remaining);
+                        Decode.ReadBytes(ref reader, bytes);
 
                         message = bytes;
                     }
