@@ -102,8 +102,8 @@ namespace Colyseus
         /// <summary>
         ///     Dictionary of the message handlers that have been provided to the room
         /// </summary>
-        protected Dictionary<string, IColyseusMessageHandler> OnMessageHandlers =
-            new Dictionary<string, IColyseusMessageHandler>();
+        protected Dictionary<string, IColyseusMessageHandler> OnMessageHandlers = new();
+        protected Dictionary<byte, IColyseusMessageHandler> OnMessageByteHandlers = new();
 
         /// <summary>
         ///     Reference to the Serializer this room uses, determined and then generated based on the <see cref="SerializerId" />
@@ -463,7 +463,7 @@ namespace Colyseus
         /// <typeparam name="MessageType">The type of object this message should respond with</typeparam>
         public void OnMessage<MessageType>(byte type, Action<MessageType> handler)
         {
-            OnMessageHandlers.Add("i" + type, new ColyseusMessageHandler<MessageType>
+            OnMessageByteHandlers.Add(type, new ColyseusMessageHandler<MessageType>
             {
                 Action = handler
             });
@@ -585,7 +585,7 @@ namespace Colyseus
                 if (Decode.NumberCheck(ref reader))
                 {
                     type = Decode.DecodeNumber(ref reader);
-                    OnMessageHandlers.TryGetValue("i" + type, out handler);
+                    OnMessageByteHandlers.TryGetValue((byte)type, out handler);
                 }
                 else
                 {
@@ -712,7 +712,7 @@ namespace Colyseus
                 if (Decode.NumberCheck(bytes, it))
                 {
                     type = Decode.DecodeNumber(bytes, it);
-                    OnMessageHandlers.TryGetValue("i" + type, out handler);
+                    OnMessageByteHandlers.TryGetValue((byte)type, out handler);
                 }
                 else
                 {
