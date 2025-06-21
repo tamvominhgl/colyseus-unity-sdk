@@ -107,6 +107,10 @@ namespace NativeWebSocket
     public delegate void WebSocketErrorEventHandler(string errorMsg);
     public delegate void WebSocketCloseEventHandler(int closeCode);
 
+    public delegate bool ParseMessageHandler(ReadOnlySequence<byte> bytes, out string str, out byte b, out object message);
+    public delegate void MessageStringHandler(string str, object message);
+    public delegate void MessageByteHandler(byte b, object message);
+
     public enum WebSocketCloseCode
     {
         /* Do NOT use NotSet - it's only purpose is to indicate that the close code cannot be parsed. */
@@ -365,6 +369,10 @@ namespace NativeWebSocket
         public event WebSocketErrorEventHandler OnError;
         public event WebSocketCloseEventHandler OnClose;
 
+        public event ParseMessageHandler OnParseMessageThreaded;
+        public event MessageStringHandler OnMessageString;
+        public event MessageByteHandler OnMessageByte;
+
         private readonly Uri uri;
         private readonly Dictionary<string, string> headers;
         private ClientWebSocket m_Socket;
@@ -388,7 +396,7 @@ namespace NativeWebSocket
             MessageByte,
         }
 
-        internal struct Event
+        internal readonly struct Event
         {
             public EventType Type { get; }
 
@@ -396,11 +404,34 @@ namespace NativeWebSocket
 
             public string Message { get; }
 
+            public object Object { get; }
+            public byte Byte { get; }
+
             public Event(SequencePool.Rental rental)
             {
                 Type = EventType.Message;
                 Rental = rental;
                 Message = default;
+                Byte = default;
+                Object = default;
+            }
+
+            public Event(string str, object obj)
+            {
+                Type = EventType.MessageString;
+                Rental = default;
+                Message = str;
+                Byte = default;
+                Object = obj;
+            }
+
+            public Event(byte b, object obj)
+            {
+                Type = EventType.MessageString;
+                Rental = default;
+                Message = default;
+                Byte = default;
+                Object = obj;
             }
 
             public Event(EventType type, string message = default)
@@ -408,6 +439,8 @@ namespace NativeWebSocket
                 Type = type;
                 Rental = default;
                 Message = message;
+                Byte = default;
+                Object = default;
             }
         }
 
@@ -559,6 +592,12 @@ namespace NativeWebSocket
                                 OnMessage?.Invoke(rental.Value);
                             }
                             break;
+                        case EventType.MessageString:
+                            OnMessageString?.Invoke(evt.Message, evt.Object);
+                            break;
+                        case EventType.MessageByte:
+                            OnMessageByte?.Invoke(evt.Byte, evt.Object);
+                            break;
                         case EventType.Error:
                             OnError?.Invoke(evt.Message);
                             break;
@@ -599,7 +638,22 @@ namespace NativeWebSocket
 
                     if (result.MessageType != WebSocketMessageType.Close)
                     {
-                        m_Events.Enqueue(new Event(rental));
+                        if (OnParseMessageThreaded?.Invoke(rental.Value, out var str, out var b, out var obj) == true)
+                        {
+                            if (string.IsNullOrEmpty(str))
+                            {
+                                m_Events.Enqueue(new Event(b, obj));
+                            }
+                            else
+                            {
+                                m_Events.Enqueue(new Event(str, obj));
+                            }
+                            rental.Dispose();
+                        }
+                        else
+                        {
+                            m_Events.Enqueue(new Event(rental));
+                        }
                         rental = default;
                     }
                     else
