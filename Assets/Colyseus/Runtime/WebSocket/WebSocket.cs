@@ -376,8 +376,6 @@ namespace NativeWebSocket
         private CancellationTokenSource m_TokenSource;
         private CancellationToken m_CancellationToken;
 
-        private readonly object IncomingMessageLock = new object();
-
         private SemaphoreSlim m_Semaphore = new(1, 1);
         private readonly ConcurrentQueue<Event> m_Events = new();
 
