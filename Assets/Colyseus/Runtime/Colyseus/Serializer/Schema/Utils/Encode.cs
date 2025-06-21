@@ -1,4 +1,5 @@
 using System;
+using System.Text;
 
 namespace Colyseus.Schema.Utils
 {
@@ -41,34 +42,95 @@ namespace Colyseus.Schema.Utils
             return initialBytes;
         }
 
-        public static int setBytesWithEncodedType(byte protocol, byte[] encodedType, Memory<byte> memory)
+        public static int setInitialBytes(byte protocol, string type, Memory<byte> memory)
         {
             var span = memory.Span;
             span[0] = protocol;
 
-            var length = 1;
-
-            if (encodedType.Length < 0x20)
+            int offset;
+            var stringLen = type.Length;
+            if (stringLen < 0x20)
             {
-                span[1] = (byte)(encodedType.Length | 0xa0);
+                offset = 2;
+            }
+            else if (stringLen < 0x100)
+            {
+                offset = 3;
+            }
+            else if (stringLen < 0x10000)
+            {
+                offset = 4;
+            }
+            else if (stringLen < 0x7fffffff)
+            {
+                offset = 6;
+            }
+            else
+            {
+                throw new Exception("String too long");
+            }
+
+            var byteLen = Encoding.UTF8.GetBytes(type, memory.Span[offset..]);
+
+            if (byteLen != stringLen)
+            {
+                var estimateOffset = offset;
+
+                if (byteLen < 0x20)
+                {
+                    offset = 2;
+                }
+                else if (byteLen < 0x100)
+                {
+                    offset = 3;
+                }
+                else if (byteLen < 0x10000)
+                {
+                    offset = 4;
+                }
+                else if (byteLen < 0x7fffffff)
+                {
+                    offset = 6;
+                }
+                else
+                {
+                    throw new Exception("String too long");
+                }
+
+                if (offset != estimateOffset)
+                {
+                    var src = memory.Span[estimateOffset..];
+                    var dst = memory.Span[offset..];
+
+                    for (var i = 0; i < byteLen; i++)
+                    {
+                        dst[i] = src[i];
+                    }
+                }
+            }
+
+            var length = 1;
+            if (byteLen < 0x20)
+            {
+                span[1] = (byte)(byteLen | 0xa0);
                 length += 1;
             }
-            else if (encodedType.Length < 0x100)
+            else if (byteLen < 0x100)
             {
                 span[1] = 0xd9;
-                uint8(span[2..], encodedType.Length);
+                uint8(span[2..], byteLen);
                 length += 2;
             }
-            else if (encodedType.Length < 0x10000)
+            else if (byteLen < 0x10000)
             {
                 span[1] = 0xda;
-                uint16(span[2..], encodedType.Length);
+                uint16(span[2..], byteLen);
                 length += 3;
             }
-            else if (encodedType.Length < 0x7fffffff)
+            else if (byteLen < 0x7fffffff)
             {
                 span[1] = 0xdb;
-                uint32(span[2..], encodedType.Length);
+                uint32(span[2..], byteLen);
                 length += 5;
             }
             else
@@ -76,8 +138,7 @@ namespace Colyseus.Schema.Utils
                 throw new Exception("String too long");
             }
 
-            encodedType.CopyTo(memory[length..]);
-            length += encodedType.Length;
+            length += byteLen;
 
             return length;
         }
