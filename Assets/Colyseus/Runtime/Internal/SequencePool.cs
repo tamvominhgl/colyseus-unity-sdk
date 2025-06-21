@@ -21,7 +21,8 @@ namespace Colyseus
         /// <summary>
         /// A thread-safe pool of reusable <see cref="Sequence{T}"/> objects.
         /// </summary>
-        internal static readonly SequencePool Shared = new (64, ArrayPool<byte>.Create(32 * 1024, 80));
+        internal static readonly SequencePool Shared = new ();
+        internal static readonly SequencePool SenderShared = new (64, ArrayPool<byte>.Create(16 * 1024, 16));
 
         /// <summary>
         /// The value to use for <see cref="Sequence{T}.MinimumSpanLength"/>.
@@ -140,7 +141,7 @@ namespace Colyseus
             }
         }
 
-        internal struct Rental : IDisposable
+        internal readonly struct Rental : IDisposable
         {
             private readonly SequencePool owner;
 

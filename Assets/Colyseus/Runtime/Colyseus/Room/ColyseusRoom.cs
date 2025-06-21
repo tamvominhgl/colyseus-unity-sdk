@@ -272,11 +272,11 @@ namespace Colyseus
         public async Task Send<MessageType>(byte type, MessageType message)
         {
 #if USE_MESSAGEPACK_CSHARP
-            using var msgRental = SequencePool.Shared.Rent();
+            using var msgRental = SequencePool.SenderShared.Rent();
             msgRental.Value.MinimumSpanLength = MinimumSpanLength;
             MessagePackSerializer.Serialize(msgRental.Value, message);
 
-            using var rental = SequencePool.Shared.Rent();
+            using var rental = SequencePool.SenderShared.Rent();
             rental.Value.MinimumSpanLength = MinimumSpanLength;
             var rentalMemory = rental.Value.GetMemory((int)msgRental.Value.Length + 2);
             var length = 0;
@@ -316,7 +316,7 @@ namespace Colyseus
 #if USE_MESSAGEPACK_CSHARP
             byte[] encodedType = Encoding.UTF8.GetBytes(type);
 
-            using var rental = SequencePool.Shared.Rent();
+            using var rental = SequencePool.SenderShared.Rent();
             rental.Value.MinimumSpanLength = MinimumSpanLength;
             var rentalMemory = rental.Value.GetMemory(encodedType.Length + 6);
             var length = 0;
@@ -344,13 +344,13 @@ namespace Colyseus
         public async Task Send<MessageType>(string type, MessageType message)
         {
 #if USE_MESSAGEPACK_CSHARP
-            using var msgRental = SequencePool.Shared.Rent();
+            using var msgRental = SequencePool.SenderShared.Rent();
             msgRental.Value.MinimumSpanLength = MinimumSpanLength;
             MessagePackSerializer.Serialize(msgRental.Value, message);
 
             byte[] encodedType = Encoding.UTF8.GetBytes(type);
 
-            using var rental = SequencePool.Shared.Rent();
+            using var rental = SequencePool.SenderShared.Rent();
             rental.Value.MinimumSpanLength = MinimumSpanLength;
             var rentalMemory = rental.Value.GetMemory((int)msgRental.Value.Length + encodedType.Length + 6);
             var length = 0;
@@ -389,7 +389,7 @@ namespace Colyseus
         public async Task SendBytes(byte type, byte[] bytes)
         {
 #if USE_MESSAGEPACK_CSHARP
-            using var rental = SequencePool.Shared.Rent();
+            using var rental = SequencePool.SenderShared.Rent();
             rental.Value.MinimumSpanLength = MinimumSpanLength;
             var rentalMemory = rental.Value.GetMemory(bytes.Length + 2);
             var length = 0;
@@ -423,7 +423,7 @@ namespace Colyseus
 #if USE_MESSAGEPACK_CSHARP
             byte[] encodedType = Encoding.UTF8.GetBytes(type);
 
-            using var rental = SequencePool.Shared.Rent();
+            using var rental = SequencePool.SenderShared.Rent();
             rental.Value.MinimumSpanLength = MinimumSpanLength;
             var rentalMemory = rental.Value.GetMemory(bytes.Length + encodedType.Length + 6);
             var length = 0;
