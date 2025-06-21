@@ -2,7 +2,6 @@ using System;
 using System.Buffers;
 
 #if USE_MESSAGEPACK_CSHARP
-using System.IO;
 using MessagePack;
 #endif
 

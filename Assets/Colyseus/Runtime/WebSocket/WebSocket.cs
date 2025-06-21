@@ -103,11 +103,7 @@ public class WaitForUpdate : CustomYieldInstruction
 namespace NativeWebSocket
 {
     public delegate void WebSocketOpenEventHandler();
-#if USE_MESSAGEPACK_CSHARP
     public delegate void WebSocketMessageEventHandler(ReadOnlySequence<byte> bytes);
-#else
-    public delegate void WebSocketMessageEventHandler(byte[] data);
-#endif
     public delegate void WebSocketErrorEventHandler(string errorMsg);
     public delegate void WebSocketCloseEventHandler(int closeCode);
 
@@ -381,33 +377,28 @@ namespace NativeWebSocket
 
         private bool dispatcherRegistered = false;
 
-        enum EventType
+        internal enum EventType
         {
+            Unknown,
             Open,
             Message,
             Error,
+
+            MessageString,
+            MessageByte,
         }
 
-        readonly struct Event
+        internal struct Event
         {
             public EventType Type { get; }
 
-            public byte[] Data { get; }
             public SequencePool.Rental Rental { get; }
-            public string Message { get; }
 
-            public Event(byte[] data)
-            {
-                Type = EventType.Message;
-                Data = data;
-                Rental = default;
-                Message = default;
-            }
+            public string Message { get; }
 
             public Event(SequencePool.Rental rental)
             {
                 Type = EventType.Message;
-                Data = default;
                 Rental = rental;
                 Message = default;
             }
@@ -415,7 +406,6 @@ namespace NativeWebSocket
             public Event(EventType type, string message = default)
             {
                 Type = type;
-                Data = default;
                 Rental = default;
                 Message = message;
             }
@@ -564,14 +554,10 @@ namespace NativeWebSocket
                             OnOpen?.Invoke();
                             break;
                         case EventType.Message:
-#if USE_MESSAGEPACK_CSHARP
                             {
                                 using var rental = evt.Rental;
                                 OnMessage?.Invoke(rental.Value);
                             }
-#else
-                            OnMessage?.Invoke(evt.Data);
-#endif
                             break;
                         case EventType.Error:
                             OnError?.Invoke(evt.Message);
