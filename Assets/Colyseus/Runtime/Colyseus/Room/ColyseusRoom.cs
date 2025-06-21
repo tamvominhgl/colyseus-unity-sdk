@@ -67,6 +67,52 @@ namespace Colyseus
         public string Token;
     }
 
+    internal readonly struct HandlerKey
+    {
+        private readonly ReadOnlySequence<byte> sequence;
+
+        public HandlerKey(string type)
+        {
+            var bytes = new byte[type.Length * 2 + 6];
+            var initialLen = Encode.setInitialBytes(ColyseusProtocol.ROOM_DATA, type, bytes);
+            sequence = new ReadOnlySequence<byte>(bytes, 0, initialLen);
+        }
+
+        public HandlerKey(ReadOnlySequence<byte> sequence)
+        {
+            this.sequence = sequence;
+        }
+
+        internal class Comparer : IEqualityComparer<HandlerKey> {
+            public bool Equals(HandlerKey x, HandlerKey y)
+            {
+                if (x.sequence.Length != y.sequence.Length)
+                {
+                    return false;
+                }
+
+                return x.sequence.SequenceEqual(y.sequence);
+            }
+
+            public int GetHashCode(HandlerKey obj)
+            {
+                return (int)obj.sequence.Length;
+            }
+        }
+    }
+
+    internal readonly struct HandlerValue
+    {
+        public readonly string Type;
+        public readonly IColyseusMessageHandler Handler;
+
+        public HandlerValue(string type, IColyseusMessageHandler handler)
+        {
+            Type = type;
+            Handler = handler;
+        }
+    }
+
     public class ColyseusRoom<T> : IColyseusRoom where T : Schema.Schema
     {
         private const int MinimumSpanLength = 8 * 1024;
@@ -105,6 +151,8 @@ namespace Colyseus
         /// </summary>
         protected ConcurrentDictionary<string, IColyseusMessageHandler> OnMessageHandlers = new();
         protected ConcurrentDictionary<byte, IColyseusMessageHandler> OnMessageByteHandlers = new();
+
+        private readonly ConcurrentDictionary<HandlerKey, HandlerValue> OnMessageStringHandlers = new(new HandlerKey.Comparer());
 
         /// <summary>
         ///     Reference to the Serializer this room uses, determined and then generated based on the <see cref="SerializerId" />
@@ -480,10 +528,14 @@ namespace Colyseus
         /// <typeparam name="MessageType">The type of object this message should respond with</typeparam>
         public void OnMessage<MessageType>(string type, Action<MessageType> handler)
         {
-            OnMessageHandlers.TryAdd(type, new ColyseusMessageHandler<MessageType>
+            var messageHandler = new ColyseusMessageHandler<MessageType>
             {
                 Action = handler
-            });
+            };
+
+            OnMessageHandlers.TryAdd(type, messageHandler);
+
+            OnMessageStringHandlers.TryAdd(new HandlerKey(type), new HandlerValue(type, messageHandler));
         }
 
         /// <summary>
@@ -669,15 +721,31 @@ namespace Colyseus
 					type = Decode.DecodeNumber(ref reader);
                     str = default;
                     b = (byte)type;
-					OnMessageByteHandlers.TryGetValue(b, out handler);
-				}
-				else
-				{
-					type = Decode.DecodeString(ref reader);
-                    str = type.ToString();
-                    b = default;
-					OnMessageHandlers.TryGetValue(str, out handler);
-				}
+                    OnMessageByteHandlers.TryGetValue(b, out handler);
+                }
+                else
+                {
+                    Decode.PassEncodedString(ref reader);
+                    var key = new HandlerKey(sequence.Slice(0, reader.Consumed));
+                    if (OnMessageStringHandlers.TryGetValue(key, out var value))
+                    {
+                        type = value.Type;
+                        str = value.Type;
+                        b = default;
+                        handler = value.Handler;
+                    }
+                    else
+                    {
+                        // reset reader
+                        reader = new SequenceReader<byte>(sequence);
+                        reader.Advance(1);
+                       
+                        type = Decode.DecodeString(ref reader);
+                        str = type.ToString();
+                        b = default;
+                        OnMessageHandlers.TryGetValue(str, out handler);                        
+                    }
+                }
 
                 if (handler != null)
                 {
@@ -870,6 +938,86 @@ namespace Colyseus
         {
             Debug.LogWarning("The serializer from the server is: '" + SerializerId + "'. " + helpMessage);
             throw e;
+        }
+    }
+
+    public static class ReadOnlySequenceExtensions
+    {
+        /// <summary>
+        /// Compares the contents of two <see cref="ReadOnlySequence{T}"/> instances for equality.
+        /// </summary>
+        /// <typeparam name="T">The type of element stored in the sequences.</typeparam>
+        /// <param name="left">The first sequence.</param>
+        /// <param name="right">The second sequence.</param>
+        /// <returns><see langword="true" /> if the sequences have equal content; <see langword="false" /> otherwise.</returns>
+        /// <remarks>
+        /// The underlying buffers need not be reference equal, nor must the segments in the sequences be of the same size.
+        /// </remarks>
+        public static bool SequenceEqual<T>(this in ReadOnlySequence<T> left, in ReadOnlySequence<T> right)
+    #if !NET8_0_OR_GREATER
+            where T : IEquatable<T>
+    #endif
+        {
+            if (left.Length != right.Length)
+            {
+                return false;
+            }
+
+            if (left.IsSingleSegment && right.IsSingleSegment)
+            {
+    #if NETSTANDARD2_1 || NET
+                return left.FirstSpan.SequenceEqual(right.FirstSpan);
+    #else
+                return left.First.Span.SequenceEqual(right.First.Span);
+    #endif
+            }
+
+            ReadOnlySequence<T>.Enumerator aEnumerator = left.GetEnumerator();
+            ReadOnlySequence<T>.Enumerator bEnumerator = right.GetEnumerator();
+
+            ReadOnlySpan<T> aCurrent = default;
+            ReadOnlySpan<T> bCurrent = default;
+            while (true)
+            {
+                bool aNext = TryGetNonEmptySpan(ref aEnumerator, ref aCurrent);
+                bool bNext = TryGetNonEmptySpan(ref bEnumerator, ref bCurrent);
+                if (!aNext && !bNext)
+                {
+                    // We've reached the end of both sequences at the same time.
+                    return true;
+                }
+                else if (aNext != bNext)
+                {
+                    // One ran out of bytes before the other.
+                    // We don't anticipate this, because we already checked the lengths.
+                    // throw Assumes.NotReachable();
+                    return false;
+                }
+
+                int commonLength = Math.Min(aCurrent.Length, bCurrent.Length);
+                if (!aCurrent[..commonLength].SequenceEqual(bCurrent[..commonLength]))
+                {
+                    return false;
+                }
+
+                aCurrent = aCurrent.Slice(commonLength);
+                bCurrent = bCurrent.Slice(commonLength);
+            }
+
+            static bool TryGetNonEmptySpan(ref ReadOnlySequence<T>.Enumerator enumerator, ref ReadOnlySpan<T> span)
+            {
+                while (span.Length == 0)
+                {
+                    if (!enumerator.MoveNext())
+                    {
+                        return false;
+                    }
+
+                    span = enumerator.Current.Span;
+                }
+
+                return true;
+            }
         }
     }
 }

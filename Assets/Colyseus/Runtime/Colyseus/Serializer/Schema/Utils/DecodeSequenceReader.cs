@@ -295,6 +295,36 @@ namespace Colyseus.Schema.Utils
             }
         }
 
+        public static void PassEncodedString(ref SequenceReader<byte> reader)
+        {
+            reader.TryRead(out byte prefix);
+
+            int length;
+            if (prefix < 0xc0)
+            {
+                // fixstr
+                length = prefix & 0x1f;
+            }
+            else if (prefix == 0xd9)
+            {
+                length = DecodeUint8(ref reader);
+            }
+            else if (prefix == 0xda)
+            {
+                length = DecodeUint16(ref reader);
+            }
+            else if (prefix == 0xdb)
+            {
+                length = (int)DecodeUint32(ref reader);
+            }
+            else
+            {
+                length = 0;
+            }
+
+            reader.Advance(length);
+        }
+
         /// <summary>
         ///     Checks if the incoming <paramref name="bytes" /> is a number
         /// </summary>
