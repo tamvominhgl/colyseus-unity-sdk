@@ -7,6 +7,7 @@ using Colyseus.Schema;
 using NativeWebSocket;
 using UnityEngine;
 using System.Buffers;
+using System.Collections.Concurrent;
 
 #if USE_MESSAGEPACK_CSHARP
 using MessagePack;
@@ -102,8 +103,8 @@ namespace Colyseus
         /// <summary>
         ///     Dictionary of the message handlers that have been provided to the room
         /// </summary>
-        protected Dictionary<string, IColyseusMessageHandler> OnMessageHandlers = new();
-        protected Dictionary<byte, IColyseusMessageHandler> OnMessageByteHandlers = new();
+        protected ConcurrentDictionary<string, IColyseusMessageHandler> OnMessageHandlers = new();
+        protected ConcurrentDictionary<byte, IColyseusMessageHandler> OnMessageByteHandlers = new();
 
         /// <summary>
         ///     Reference to the Serializer this room uses, determined and then generated based on the <see cref="SerializerId" />
@@ -209,30 +210,35 @@ namespace Colyseus
         ///     Called by the <see cref="ColyseusClient" /> upon connection to a room
         /// </summary>
         /// <param name="colyseusConnection">The connection created by the client</param>
-        public void SetConnection(ColyseusConnection colyseusConnection,  ColyseusRoom<T> room = null, Action devModeCloseCallback = null)
+        public void SetConnection(ColyseusConnection connection, ColyseusRoom<T> room = null, Action devModeCloseCallback = null)
         {
-	        room ??= this;
-	        room.Connection = colyseusConnection;
+            room ??= this;
+            room.Connection = connection;
 
-            room.Connection.OnOpen += () => Debug.Log($"websocket {RoomId} connected");
-	        room.Connection.OnClose += code =>
-	        {
-		        if (devModeCloseCallback == null || code == 1006)
-		        {
+            connection.OnOpen += () => Debug.Log($"websocket {RoomId} connected");
+            connection.OnClose += code =>
+            {
+                if (devModeCloseCallback == null || code == 1006)
+                {
                     Debug.Log($"websocket {RoomId} closed: {code}");
-			        room.OnLeave?.Invoke(code);
-		        }
-		        else
-		        {
-			        devModeCloseCallback();
-		        }
-	        };
+                    room.OnLeave?.Invoke(code);
+                }
+                else
+                {
+                    devModeCloseCallback();
+                }
+            };
 
-	        // TODO: expose WebSocket error code!
-	        // Connection.OnError += (code, message) => OnError?.Invoke(code, message);
+            // TODO: expose WebSocket error code!
+            // Connection.OnError += (code, message) => OnError?.Invoke(code, message);
 
-	        room.Connection.OnError += message => room.OnError?.Invoke(0, message);
-	        room.Connection.OnMessage += bytes => room.ParseMessage(bytes);
+            connection.OnError += message => room.OnError?.Invoke(0, message);
+            connection.OnMessage += room.ParseMessage;
+#if USE_MESSAGEPACK_CSHARP
+            connection.OnParseMessageThreaded += room.ParseMessageThreaded;
+            connection.OnMessageString += room.OnMessageString;
+            connection.OnMessageByte += room.OnMessageByte;
+#endif
         }
 
         /// <summary>
@@ -449,7 +455,7 @@ namespace Colyseus
         /// <typeparam name="MessageType">The type of object this message should respond with</typeparam>
         public void OnMessage<MessageType>(string type, Action<MessageType> handler)
         {
-            OnMessageHandlers.Add(type, new ColyseusMessageHandler<MessageType>
+            OnMessageHandlers.TryAdd(type, new ColyseusMessageHandler<MessageType>
             {
                 Action = handler
             });
@@ -463,7 +469,7 @@ namespace Colyseus
         /// <typeparam name="MessageType">The type of object this message should respond with</typeparam>
         public void OnMessage<MessageType>(byte type, Action<MessageType> handler)
         {
-            OnMessageByteHandlers.Add(type, new ColyseusMessageHandler<MessageType>
+            OnMessageByteHandlers.TryAdd(type, new ColyseusMessageHandler<MessageType>
             {
                 Action = handler
             });
@@ -619,6 +625,72 @@ namespace Colyseus
                 {
                     Debug.LogWarning("room.OnMessage not registered for: '" + type + "'");
                 }
+            }
+        }
+
+        protected bool ParseMessageThreaded(ReadOnlySequence<byte> sequence, out string str, out byte b, out object obj)
+        {
+            var reader = new SequenceReader<byte>(sequence);
+
+            byte code = Decode.DecodeUint8(ref reader);
+
+            if (code == ColyseusProtocol.ROOM_DATA)
+            {
+				object type;
+
+				IColyseusMessageHandler handler;
+				if (Decode.NumberCheck(ref reader))
+				{
+					type = Decode.DecodeNumber(ref reader);
+                    str = default;
+                    b = (byte)type;
+					OnMessageByteHandlers.TryGetValue(b, out handler);
+				}
+				else
+				{
+					type = Decode.DecodeString(ref reader);
+                    str = type.ToString();
+                    b = default;
+					OnMessageHandlers.TryGetValue(str, out handler);
+				}
+
+                if (handler != null)
+                {
+                    if (reader.Remaining > 0)
+                    {
+                        obj = handler.Parse(reader.Sequence.Slice(reader.Consumed));
+                    }
+                    else
+                    {
+                        obj = default;
+                    }
+                    return true;
+                }
+                else
+                {
+                    Debug.LogWarning($"room.OnMessage not registered for: '{type}'");
+                }
+            }
+
+            str = default;
+            b = default;
+            obj = default;
+            return false;
+        }
+
+        protected void OnMessageString(string str, object obj)
+        {
+            if (OnMessageHandlers.TryGetValue(str, out var handler))
+            {
+                handler.Invoke(obj);
+            }
+        }
+
+        protected void OnMessageByte(byte b, object obj)
+        {
+            if (OnMessageByteHandlers.TryGetValue(b, out var handler))
+            {
+                handler.Invoke(obj);
             }
         }
 #else
