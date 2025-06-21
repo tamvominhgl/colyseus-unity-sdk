@@ -260,8 +260,16 @@ namespace Colyseus
         /// <param name="type">Message type</param>
         public async Task Send(byte type)
         {
-            byte[] bytes = {ColyseusProtocol.ROOM_DATA, type};
-            await Connection.Send(bytes);
+            if (type < 0x80)
+            {
+                byte[] bytes = { ColyseusProtocol.ROOM_DATA, type };
+                await Connection.Send(bytes);
+            }
+            else
+            {
+                byte[] bytes = { ColyseusProtocol.ROOM_DATA, 0xcc, type };
+                await Connection.Send(bytes);
+            }
         }
 
         /// <summary>
@@ -278,8 +286,17 @@ namespace Colyseus
 
             var memory = msgSequence.GetMemory(2);
             memory.Span[0] = ColyseusProtocol.ROOM_DATA;
-            memory.Span[1] = type; // TODO: if type > 0x80
-            msgSequence.Advance(2);
+            if (type < 0x80)
+            {
+                memory.Span[1] = type;
+                msgSequence.Advance(2);
+            }
+            else
+            {
+                memory.Span[1] = 0xcc;
+                memory.Span[2] = type;
+                msgSequence.Advance(3);
+            }
 
             MessagePackSerializer.Serialize(msgSequence, message);
 
@@ -395,9 +412,19 @@ namespace Colyseus
             rental.Value.MinimumSpanLength = MinimumSpanLength;
             var rentalMemory = rental.Value.GetMemory(bytes.Length + 2);
 
+            var length = 0;
             rentalMemory.Span[0] = ColyseusProtocol.ROOM_DATA_BYTES;
-            rentalMemory.Span[1] = type; // TODO: if type > 0x80
-            var length = 2;
+            if (type < 0x80)
+            {
+                rentalMemory.Span[1] = type;
+                length = 2;
+            }
+            else
+            {
+                rentalMemory.Span[1] = 0xcc;
+                rentalMemory.Span[2] = type;
+                length = 3;
+            }
 
             bytes.CopyTo(rentalMemory[length..]);
             length += bytes.Length;
