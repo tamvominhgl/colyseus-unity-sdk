@@ -26,6 +26,8 @@ namespace Colyseus
         /// </summary>
         public bool useSecureProtocol = false;
 
+        public bool useMessagePackLz4 = false;
+
         /// <summary>
         /// Internal wrapper class for a <see cref="UnityEngine.Networking.UnityWebRequest"/> Request header since Unity cant serialize arrays
         /// </summary>

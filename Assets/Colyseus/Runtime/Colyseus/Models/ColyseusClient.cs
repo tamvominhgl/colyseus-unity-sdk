@@ -397,6 +397,11 @@ namespace Colyseus
 				list.Add(item.Key + "=" + (item.Value != null ? Convert.ToString(item.Value) : "null"));
 			}
 
+			if (Settings.useMessagePackLz4)
+			{
+				list.Add("msgpack=lz4");
+			}
+
 			// Try to connect directly to custom publicAddress, if present.
 			var endpoint = (room.publicAddress != null && room.publicAddress.Length > 0)
 				? new Uri($"{Endpoint.Scheme}://{room.publicAddress}")
