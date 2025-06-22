@@ -3,6 +3,18 @@ using System.Buffers;
 
 #if USE_MESSAGEPACK_CSHARP
 using MessagePack;
+using UnityEngine;
+
+internal static class MessagePackHelper
+{
+    public static MessagePackSerializerOptions Options { get; private set; }
+
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
+    private static void Init()
+    {
+        Options = MessagePackSerializer.DefaultOptions.WithCompression(MessagePackCompression.Lz4BlockArray);
+    }
+}
 #endif
 
 namespace Colyseus
@@ -45,13 +57,13 @@ namespace Colyseus
         /// <param name="message">Data for the Action, will be cast to "T"</param>
         public void Invoke(object message)
         {
-            Action.Invoke((T) message);
+            Action.Invoke((T)message);
         }
 
 #if USE_MESSAGEPACK_CSHARP
         public object Parse(ReadOnlySequence<byte> sequence)
         {
-            return MessagePackSerializer.Deserialize<T>(sequence);
+            return MessagePackSerializer.Deserialize<T>(sequence, MessagePackHelper.Options);
         }
 #endif
 
