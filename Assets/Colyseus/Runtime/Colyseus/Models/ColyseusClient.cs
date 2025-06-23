@@ -399,7 +399,7 @@ namespace Colyseus
 
 			if (Settings.useMessagePackLz4)
 			{
-				list.Add("msgpack=lz4");
+				list.Add("msgpack-lz4=supported");
 			}
 
 			// Try to connect directly to custom publicAddress, if present.
