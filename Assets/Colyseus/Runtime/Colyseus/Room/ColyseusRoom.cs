@@ -262,12 +262,12 @@ namespace Colyseus
             room ??= this;
             room.Connection = connection;
 
-            connection.OnOpen += () => Debug.Log($"websocket {RoomId} connected");
+            connection.OnOpen += () => Debug.Log($"websocket {SessionId} connected");
             connection.OnClose += code =>
             {
                 if (devModeCloseCallback == null || code == 1006)
                 {
-                    Debug.Log($"websocket {RoomId} closed: {code}");
+                    Debug.Log($"websocket {SessionId} closed: {code}");
                     room.OnLeave?.Invoke(code);
                 }
                 else
