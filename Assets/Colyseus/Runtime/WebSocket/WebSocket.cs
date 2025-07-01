@@ -427,10 +427,10 @@ namespace NativeWebSocket
 
             public Event(byte b, object obj)
             {
-                Type = EventType.MessageString;
+                Type = EventType.MessageByte;
                 Rental = default;
                 Message = default;
-                Byte = default;
+                Byte = b;
                 Object = obj;
             }
 

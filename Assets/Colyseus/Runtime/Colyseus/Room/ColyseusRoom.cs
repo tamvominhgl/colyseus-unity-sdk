@@ -735,9 +735,10 @@ namespace Colyseus
 				IColyseusMessageHandler handler;
 				if (Decode.NumberCheck(ref reader))
 				{
-					type = Decode.DecodeNumber(ref reader);
+					var number = Decode.DecodeNumber(ref reader);
+                    type = number;
                     str = default;
-                    b = (byte)type;
+                    b = (byte)number;
                     OnMessageByteHandlers.TryGetValue(b, out handler);
                 }
                 else
