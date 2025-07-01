@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using NativeWebSocket;
+using System.Buffers;
 // ReSharper disable InconsistentNaming
 
 namespace Colyseus
@@ -22,6 +23,52 @@ namespace Colyseus
         public async Task Send(ReadOnlyMemory<byte> bytes)
         {
             await SendMessage(System.Net.WebSockets.WebSocketMessageType.Binary, bytes);
+        }
+
+        public async Task Send(ReadOnlySequence<byte> sequence)
+        {
+            if (sequence.IsSingleSegment)
+            {
+                await SendMessage(System.Net.WebSockets.WebSocketMessageType.Binary, sequence.First);
+            }
+            else
+            {
+                var enumerator = sequence.GetEnumerator();
+
+                ReadOnlyMemory<byte> current = default;
+                ReadOnlyMemory<byte> next = default;
+
+                TryGetNextMemory(ref enumerator, ref current);
+                while (true)
+                {
+                    bool hasNext = TryGetNextMemory(ref enumerator, ref next);
+                    if (hasNext)
+                    {
+                        await SendMessage(System.Net.WebSockets.WebSocketMessageType.Binary, current, false);
+                        current = next;
+                    }
+                    else
+                    {
+                        await SendMessage(System.Net.WebSockets.WebSocketMessageType.Binary, current, true);
+                        break;
+                    }
+                }
+            }
+        }
+
+        static bool TryGetNextMemory(ref ReadOnlySequence<byte>.Enumerator enumerator, ref ReadOnlyMemory<byte> memory)
+        {
+            while (memory.Length == 0)
+            {
+                if (!enumerator.MoveNext())
+                {
+                    return false;
+                }
+
+                memory = enumerator.Current;
+            }
+
+            return true;
         }
     }
 }

@@ -527,13 +527,13 @@ namespace NativeWebSocket
             _ => WebSocketState.Closed
         };
 
-        public Task Send(byte[] bytes)
-            => SendMessage(WebSocketMessageType.Binary, bytes);
+        // public Task Send(byte[] bytes)
+        //     => SendMessage(WebSocketMessageType.Binary, bytes);
 
-        public Task SendText(string message)
-            => SendMessage(WebSocketMessageType.Text, Encoding.UTF8.GetBytes(message));
+        // public Task SendText(string message)
+        //     => SendMessage(WebSocketMessageType.Text, Encoding.UTF8.GetBytes(message));
 
-        protected async Task SendMessage(WebSocketMessageType messageType, ReadOnlyMemory<byte> buffer)
+        protected async Task SendMessage(WebSocketMessageType messageType, ReadOnlyMemory<byte> buffer, bool endOfMessage = true)
         {
             // Return control to the calling method immediately.
             // await Task.Yield ();
@@ -553,7 +553,7 @@ namespace NativeWebSocket
                     throw new InvalidOperationException("WebSocket is not ready!");
                 }
 
-                await m_Socket.SendAsync(buffer, messageType, true, m_CancellationToken).ConfigureAwait(false);
+                await m_Socket.SendAsync(buffer, messageType, endOfMessage, m_CancellationToken).ConfigureAwait(false);
             }
             catch (Exception e)
             {
