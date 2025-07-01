@@ -21,7 +21,7 @@ namespace Colyseus
         /// <summary>
         /// A thread-safe pool of reusable <see cref="Sequence{T}"/> objects.
         /// </summary>
-        internal static readonly SequencePool Shared = new ();
+        internal static readonly SequencePool Shared = new(32, ArrayPool<byte>.Create(64 * 1024, 64));
 
         /// <summary>
         /// The value to use for <see cref="Sequence{T}.MinimumSpanLength"/>.
