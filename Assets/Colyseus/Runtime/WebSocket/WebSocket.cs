@@ -506,7 +506,13 @@ namespace NativeWebSocket
                     message = $"{message} - {ex.InnerException.Message}";
                 }
                 OnError?.Invoke(message);
-                OnClose?.Invoke((int)WebSocketCloseCode.Abnormal);
+
+                var closeCode = (int)WebSocketCloseCode.Abnormal;
+                if (m_Socket != null && m_Socket.CloseStatus != null)
+                {
+                    closeCode = (int)m_Socket.CloseStatus;
+                }
+                OnClose?.Invoke(closeCode);
             }
             finally
             {
