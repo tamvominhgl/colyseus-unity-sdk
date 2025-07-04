@@ -500,7 +500,12 @@ namespace NativeWebSocket
 #else
                 await new WaitForUpdate();
 #endif
-                OnError?.Invoke(ex.Message);
+                var message = ex.Message;
+                if (ex.InnerException != null)
+                {
+                    message = $"{message} - {ex.InnerException.Message}";
+                }
+                OnError?.Invoke(message);
                 OnClose?.Invoke((int)WebSocketCloseCode.Abnormal);
             }
             finally
