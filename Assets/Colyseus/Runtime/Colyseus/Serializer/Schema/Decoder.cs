@@ -1,4 +1,5 @@
 using System;
+using System.Buffers;
 using System.Collections.Generic;
 
 namespace Colyseus.Schema
@@ -30,29 +31,20 @@ namespace Colyseus.Schema
 		///     create a new one
 		/// </param>
 		/// <exception cref="Exception">If no decoding fails</exception>
-		public void Decode(byte[] bytes, Iterator it = null, int length = 0)
+		public void Decode(ref SequenceReader<byte> reader)
 		{
-			if (it == null)
-			{
-				it = new Iterator();
-			}
-
 			int refId = 0;
 			IRef _ref = State;
 
 			AllChanges.Clear();
 
-			int totalBytes = length > 0 ? it.Offset + length : bytes.Length;
-
-			while (it.Offset < totalBytes)
+			while (reader.Remaining > 0)
 			{
-				if (bytes[it.Offset] == (byte)SPEC.SWITCH_TO_STRUCTURE)
+				if (reader.IsNext((byte)SPEC.SWITCH_TO_STRUCTURE, true))
 				{
-					it.Offset++;
+					refId = Convert.ToInt32(Utils.Decode.DecodeNumber(ref reader));
 
-					refId = Convert.ToInt32(Utils.Decode.DecodeNumber(bytes, it));
-
-					if (_ref is IArraySchema) { ((IArraySchema)_ref).OnDecodeEnd(); }
+					if (_ref is IArraySchema arraySchema) { arraySchema.OnDecodeEnd(); }
 
 					_ref = Refs.Get(refId);
 
@@ -71,15 +63,15 @@ namespace Colyseus.Schema
 
 				if (_ref is Schema)
 				{
-					isSchemaDefinitionMismatch = !DecodeSchema(bytes, it, (Schema)_ref);
+					isSchemaDefinitionMismatch = !DecodeSchema(ref reader, (Schema)_ref);
 				}
 				else if (_ref is IMapSchema)
 				{
-					isSchemaDefinitionMismatch = !DecodeMapSchema(bytes, it, (IMapSchema)_ref);
+					isSchemaDefinitionMismatch = !DecodeMapSchema(ref reader, (IMapSchema)_ref);
 				}
 				else
 				{
-					isSchemaDefinitionMismatch = !DecodeArraySchema(bytes, it, (IArraySchema)_ref);
+					isSchemaDefinitionMismatch = !DecodeArraySchema(ref reader, (IArraySchema)_ref);
 				}
 
 				if (isSchemaDefinitionMismatch)
@@ -88,20 +80,22 @@ namespace Colyseus.Schema
 					// keep skipping next bytes until reaches a known structure
 					// by local decoder.
 					//
-					Iterator nextIterator = new Iterator { Offset = it.Offset };
 
-					while (it.Offset < totalBytes)
+					while (reader.Remaining > 0)
 					{
-						if (Utils.Decode.SwitchStructureCheck(bytes, it))
+						reader.TryRead(out var spec);
+						if (spec == (byte)SPEC.SWITCH_TO_STRUCTURE)
 						{
-							nextIterator.Offset = it.Offset + 1;
-							if (Refs.Has(Convert.ToInt32(Utils.Decode.DecodeNumber(bytes, nextIterator))))
+							var consumed = reader.Consumed;
+							if (Refs.Has(Convert.ToInt32(Utils.Decode.DecodeNumber(ref reader))))
 							{
 								break;
 							}
+							else
+							{
+								reader.Rewind(reader.Consumed - consumed);
+							}
 						}
-
-						it.Offset++;
 					}
 
 					continue;
@@ -115,7 +109,7 @@ namespace Colyseus.Schema
 			Refs.GarbageCollection();
 		}
 
-		protected void DecodeValue(byte[] bytes, Iterator it, IRef _ref, int fieldIndex, string fieldType, System.Type childType, byte operation, out object value, out object previousValue)
+		protected void DecodeValue(ref SequenceReader<byte> reader, IRef _ref, int fieldIndex, string fieldType, System.Type childType, byte operation, out object value, out object previousValue)
 		{
 			previousValue = _ref.GetByIndex(fieldIndex);
 
@@ -149,12 +143,12 @@ namespace Colyseus.Schema
 			}
 			else if (fieldType == "ref")
 			{
-				var __refId = Convert.ToInt32(Utils.Decode.DecodeNumber(bytes, it));
+				var __refId = Convert.ToInt32(Utils.Decode.DecodeNumber(ref reader));
 				value = Refs.Get(__refId);
 
 				if ((operation & (byte)OPERATION.ADD) == (byte)OPERATION.ADD)
 				{
-					System.Type concreteChildType = GetSchemaType(bytes, it, childType);
+					System.Type concreteChildType = GetSchemaType(ref reader, childType);
 					if (value == null)
 					{
 						value = CreateTypeInstance(concreteChildType);
@@ -170,11 +164,11 @@ namespace Colyseus.Schema
 			else if (childType == null)
 			{
 				// primitive values
-				value = Utils.Decode.DecodePrimitiveType(fieldType, bytes, it);
+				value = Utils.Decode.DecodePrimitiveType(fieldType, ref reader);
 			}
 			else
 			{
-				var __refId = Convert.ToInt32(Utils.Decode.DecodeNumber(bytes, it));
+				var __refId = Convert.ToInt32(Utils.Decode.DecodeNumber(ref reader));
 
 				ISchemaCollection valueRef = Refs.Has(__refId)
 					? (ISchemaCollection)previousValue ?? (ISchemaCollection)Refs.Get(__refId)
@@ -220,9 +214,9 @@ namespace Colyseus.Schema
 			}
 		}
 
-		protected bool DecodeSchema(byte[] bytes, Iterator it, Schema refSchema)
+		protected bool DecodeSchema(ref SequenceReader<byte> reader, Schema refSchema)
 		{
-			byte firstByte = bytes[it.Offset++];
+			reader.TryRead(out byte firstByte);
 			byte operation = (byte) ((firstByte >> 6) << 6); // "compressed" index + operation
 
 			int fieldIndex = firstByte % (operation == 0 ? 255 : operation); // FIXME: JS allows (0 || 255);
@@ -237,8 +231,7 @@ namespace Colyseus.Schema
 			}
 
 			DecodeValue(
-				bytes,
-				it,
+				ref reader,
 				refSchema,
 				fieldIndex,
 				fieldType,
@@ -268,9 +261,9 @@ namespace Colyseus.Schema
 			return true;
 		}
 
-		protected bool DecodeMapSchema (byte[] bytes, Iterator it, IMapSchema refMap)
+		protected bool DecodeMapSchema (ref SequenceReader<byte> reader, IMapSchema refMap)
 		{
-			byte operation = bytes[it.Offset++];
+			reader.TryRead(out byte operation);
 
 			if (operation == (byte)OPERATION.CLEAR)
 			{
@@ -278,7 +271,7 @@ namespace Colyseus.Schema
 				return true;
 			}
 
-			int fieldIndex = Convert.ToInt32(Utils.Decode.DecodeNumber(bytes, it));
+			int fieldIndex = Convert.ToInt32(Utils.Decode.DecodeNumber(ref reader));
 			string fieldType;
 			System.Type childType = null;
 
@@ -297,7 +290,7 @@ namespace Colyseus.Schema
 			if ((operation & (byte)OPERATION.ADD) == (byte)OPERATION.ADD)
 			{
 				// MapSchema dynamic index.
-				dynamicIndex = Utils.Decode.DecodeString(bytes, it);
+				dynamicIndex = Utils.Decode.DecodeString(ref reader);
 				refMap.SetIndex(fieldIndex, dynamicIndex);
 			}
 			else
@@ -306,8 +299,7 @@ namespace Colyseus.Schema
 			}
 
 			DecodeValue(
-				bytes,
-				it,
+				ref reader,
 				refMap,
 				fieldIndex,
 				fieldType,
@@ -337,9 +329,9 @@ namespace Colyseus.Schema
 			return true;
 		}
 
-		protected bool DecodeArraySchema(byte[] bytes, Iterator it, IArraySchema refArray)
+		protected bool DecodeArraySchema(ref SequenceReader<byte> reader, IArraySchema refArray)
 		{
-			byte operation = bytes[it.Offset++];
+			reader.TryRead(out byte operation);
 			int index;
 
 			if (operation == (byte)OPERATION.CLEAR)
@@ -357,7 +349,7 @@ namespace Colyseus.Schema
 			else if (operation == (byte)OPERATION.DELETE_BY_REFID)
 			{
 				// TODO: refactor here, try to follow same flow as below
-				int refId = Convert.ToInt32(Utils.Decode.DecodeNumber(bytes, it));
+				int refId = Convert.ToInt32(Utils.Decode.DecodeNumber(ref reader));
 				object itemByRefId = Refs.Get(refId);
 				int i = 0;
 				index = -1;
@@ -385,7 +377,7 @@ namespace Colyseus.Schema
 			}
 			else if (operation == (byte)OPERATION.ADD_BY_REFID)
 			{
-				int refId = Convert.ToInt32(Utils.Decode.DecodeNumber(bytes, it));
+				int refId = Convert.ToInt32(Utils.Decode.DecodeNumber(ref reader));
 				IRef itemByRefId = Refs.Get(refId);
 				if (itemByRefId != null)
 				{
@@ -409,7 +401,7 @@ namespace Colyseus.Schema
 			}
 			else
 			{
-				index = Convert.ToInt32(Utils.Decode.DecodeNumber(bytes, it));
+				index = Convert.ToInt32(Utils.Decode.DecodeNumber(ref reader));
 			}
 
 			string fieldType;
@@ -426,8 +418,7 @@ namespace Colyseus.Schema
 			}
 
 			DecodeValue(
-				bytes,
-				it,
+				ref reader,
 				refArray,
 				index,
 				fieldType,
@@ -469,14 +460,13 @@ namespace Colyseus.Schema
 		///     <paramref name="bytes" />
 		/// </param>
 		/// <returns>The parsed <see cref="System.Type" /> if found, <paramref name="defaultType" /> if not</returns>
-		protected System.Type GetSchemaType(byte[] bytes, Iterator it, System.Type defaultType)
+		protected System.Type GetSchemaType(ref SequenceReader<byte> reader, System.Type defaultType)
         {
             System.Type type = defaultType;
 
-            if (it.Offset < bytes.Length && bytes[it.Offset] == (byte)SPEC.TYPE_ID)
+            if (reader.Remaining > 0 && reader.IsNext((byte)SPEC.TYPE_ID, true))
             {
-                it.Offset++;
-                int typeId = Convert.ToInt32(Utils.Decode.DecodeNumber(bytes, it));
+                int typeId = Convert.ToInt32(Utils.Decode.DecodeNumber(ref reader));
                 type = Context.Get(typeId);
             }
 

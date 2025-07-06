@@ -8,6 +8,85 @@ namespace Colyseus.Schema.Utils
     public partial class Decode
     {
         /// <summary>
+        ///     Decodes incoming data into an <see cref="object" /> based off of the <paramref name="type" /> provided
+        /// </summary>
+        /// <param name="type">What type of <see cref="object" /> we expect this data to be.
+        ///     <para>Will determine the Decode method used</para>
+        /// </param>
+        /// <param name="bytes">The incoming data</param>
+        /// <param name="it">The iterator who's <see cref="Iterator.Offset" /> will be used to Decode the data</param>
+        /// <returns>A decoded <see cref="object" /> that has been decoded with a <paramref name="type" /> specified method</returns>
+        public static object DecodePrimitiveType(string type, ref SequenceReader<byte> reader)
+        {
+            if (type == "string")
+            {
+                return DecodeString(ref reader);
+            }
+
+            if (type == "number")
+            {
+                return DecodeNumber(ref reader);
+            }
+
+            if (type == "int8")
+            {
+                return DecodeInt8(ref reader);
+            }
+
+            if (type == "uint8")
+            {
+                return DecodeUint8(ref reader);
+            }
+
+            if (type == "int16")
+            {
+                return DecodeInt16(ref reader);
+            }
+
+            if (type == "uint16")
+            {
+                return DecodeUint16(ref reader);
+            }
+
+            if (type == "int32")
+            {
+                return DecodeInt32(ref reader);
+            }
+
+            if (type == "uint32")
+            {
+                return DecodeUint32(ref reader);
+            }
+
+            if (type == "int64")
+            {
+                return DecodeInt64(ref reader);
+            }
+
+            if (type == "uint64")
+            {
+                return DecodeUint64(ref reader);
+            }
+
+            if (type == "float32")
+            {
+                return DecodeFloat32(ref reader);
+            }
+
+            if (type == "float64")
+            {
+                return DecodeFloat64(ref reader);
+            }
+
+            if (type == "boolean")
+            {
+                return DecodeBoolean(ref reader);
+            }
+
+            return null;
+        }
+
+        /// <summary>
         ///     Decode method to decode <paramref name="bytes" /> into a <see cref="float" />
         /// </summary>
         /// <param name="bytes">The incoming data</param>

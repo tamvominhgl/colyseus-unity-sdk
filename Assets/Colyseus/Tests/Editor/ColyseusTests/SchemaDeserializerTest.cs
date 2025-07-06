@@ -1,6 +1,7 @@
 using NUnit.Framework;
 using UnityEngine;
 
+#if !USE_MESSAGEPACK_CSHARP
 public class SchemaDeserializerTest
 {
 
@@ -394,7 +395,7 @@ public class SchemaDeserializerTest
 		var refs = decoder.Refs;
 		var state = decoder.State;
 
-		decoder.Decode(new byte[]  { 130, 1, 131, 2, 128, 3, 129, 3, 255, 1, 255, 2, 255, 3, 128, 4, 255, 4, 128, 10, 129, 10 });
+		decoder.Decode(new byte[] { 130, 1, 131, 2, 128, 3, 129, 3, 255, 1, 255, 2, 255, 3, 128, 4, 255, 4, 128, 10, 129, 10 });
 		Assert.AreEqual(state.player1, state.player2);
 		Assert.AreEqual(state.player1.position, state.player2.position);
 		Assert.AreEqual(refs.refCounts[state.player1.__refId], 2);
@@ -508,3 +509,4 @@ public class SchemaDeserializerTest
 	}
 
 }
+#endif

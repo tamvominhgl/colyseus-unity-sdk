@@ -1,3 +1,5 @@
+using System.Buffers;
+
 namespace Colyseus
 {
     // TODO: remove dummy state dependency from NoneSerializer.
@@ -11,7 +13,7 @@ namespace Colyseus
         NoState state = new NoState();
 
         /// <inheritdoc />
-        public void SetState(byte[] rawEncodedState, int offset, int length)
+        public void SetState(ref SequenceReader<byte> reader)
         {
         }
 
@@ -22,7 +24,7 @@ namespace Colyseus
         }
 
         /// <inheritdoc />
-        public void Patch(byte[] bytes, int offset, int length)
+        public void Patch(ref SequenceReader<byte> reader)
         {
         }
 
@@ -32,7 +34,7 @@ namespace Colyseus
         }
 
         /// <inheritdoc />
-        public void Handshake(byte[] bytes, int offset, int length)
+        public void Handshake(ref SequenceReader<byte> reader)
         {
         }
     }

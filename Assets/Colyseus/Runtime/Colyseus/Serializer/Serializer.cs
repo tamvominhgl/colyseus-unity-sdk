@@ -1,3 +1,5 @@
+using System.Buffers;
+
 namespace Colyseus
 {
     /// <summary>
@@ -11,7 +13,7 @@ namespace Colyseus
         /// </summary>
         /// <param name="data">The incoming state data</param>
         /// <param name="offset">Offset for reading the incoming data</param>
-        void SetState(byte[] data, int offset, int length = 0);
+        void SetState(ref SequenceReader<byte> reader);
 
         /// <summary>
         ///     Get the current state
@@ -24,7 +26,7 @@ namespace Colyseus
         /// </summary>
         /// <param name="data">The incoming state data</param>
         /// <param name="offset">Offset for reading the incoming data</param>
-        void Patch(byte[] data, int offset, int length = 0);
+        void Patch(ref SequenceReader<byte> reader);
 
         /// <summary>
         ///     Clean-up functionality
@@ -36,6 +38,6 @@ namespace Colyseus
         /// </summary>
         /// <param name="bytes">The handshake data to serialize</param>
         /// <param name="offset">Offset for reading the incoming data</param>
-        void Handshake(byte[] bytes, int offset, int length = 0);
+        void Handshake(ref SequenceReader<byte> reader);
     }
 }

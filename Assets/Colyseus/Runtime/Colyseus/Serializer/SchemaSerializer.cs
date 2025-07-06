@@ -3,6 +3,7 @@ using System.Reflection;
 using System.Collections.Generic;
 using Colyseus.Schema;
 using Type = Colyseus.Schema.Type;
+using System.Buffers;
 
 namespace Colyseus
 {
@@ -20,10 +21,9 @@ namespace Colyseus
 		protected Iterator It = new Iterator();
 
 		/// <inheritdoc />
-		public void SetState(byte[] data, int offset = 0, int length = 0)
+		public void SetState(ref SequenceReader<byte> reader)
 		{
-			It.Offset = offset;
-			Decoder.Decode(data, It, length);
+			Decoder.Decode(ref reader);
 		}
 
 		/// <inheritdoc />
@@ -33,10 +33,9 @@ namespace Colyseus
 		}
 
 		/// <inheritdoc />
-		public void Patch(byte[] data, int offset = 0, int length = 0)
+		public void Patch(ref SequenceReader<byte> reader)
 		{
-			It.Offset = offset;
-			Decoder.Decode(data, It, length);
+			Decoder.Decode(ref reader);
 		}
 
 		/// <inheritdoc />
@@ -47,17 +46,15 @@ namespace Colyseus
 		}
 
 		/// <inheritdoc />
-		public void Handshake(byte[] bytes, int offset, int length = 0)
+		public void Handshake(ref SequenceReader<byte> reader)
 		{
 			System.Type targetType = typeof(T);
 
 			System.Type[] allTypes = targetType.Assembly.GetTypes();
 			List<System.Type> namespaceSchemaTypes = new List<System.Type>(Array.FindAll(allTypes, t => t.Namespace == targetType.Namespace && typeof(Schema.Schema).IsAssignableFrom( targetType)));
 
-			Iterator it = new Iterator { Offset = offset };
-
 			var reflectionDecoder = new Decoder<Reflection>();
-			reflectionDecoder.Decode(bytes, it, length);
+			reflectionDecoder.Decode(ref reader);
 
 			var reflection = reflectionDecoder.State;
 			var types = reflection.types.items.ToArray();
