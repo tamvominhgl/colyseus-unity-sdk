@@ -467,7 +467,7 @@ namespace NativeWebSocket
             m_TokenSource?.Cancel();
         }
 
-        public async Task Connect()
+        public async Awaitable Connect()
         {
             try
             {
@@ -491,7 +491,7 @@ namespace NativeWebSocket
 
                 m_Events.Enqueue(new Event(EventType.Open));
 
-                await Receive().ConfigureAwait(false);
+                await Receive();
             }
             catch (Exception ex)
             {
@@ -544,7 +544,7 @@ namespace NativeWebSocket
         // public Task SendText(string message)
         //     => SendMessage(WebSocketMessageType.Text, Encoding.UTF8.GetBytes(message));
 
-        protected async Task SendMessage(WebSocketMessageType messageType, ReadOnlyMemory<byte> buffer, bool endOfMessage = true)
+        protected async Awaitable SendMessage(WebSocketMessageType messageType, ReadOnlyMemory<byte> buffer, bool endOfMessage = true)
         {
             // Return control to the calling method immediately.
             // await Task.Yield ();
@@ -622,7 +622,7 @@ namespace NativeWebSocket
             }
         }
 
-        async Task Receive()
+        async Awaitable Receive()
         {
             int closeCode = (int)WebSocketCloseCode.Abnormal;
 #if UNITY_2023_1_OR_NEWER
@@ -669,7 +669,7 @@ namespace NativeWebSocket
                     }
                     else
                     {
-                        await Close().ConfigureAwait(false);
+                        await Close();
                         closeCode = (int)m_Socket.CloseStatus;
                         break;
                     }
@@ -694,7 +694,7 @@ namespace NativeWebSocket
             }
         }
 
-        public async Task Close()
+        public async Awaitable Close()
         {
             if (State == WebSocketState.Open)
             {
