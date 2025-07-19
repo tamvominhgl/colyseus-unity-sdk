@@ -373,6 +373,8 @@ namespace NativeWebSocket
         public event MessageStringHandler OnMessageString;
         public event MessageByteHandler OnMessageByte;
 
+        public long KeepAliveInterval = 0;
+
         private readonly Uri uri;
         private readonly Dictionary<string, string> headers;
         private ClientWebSocket m_Socket;
@@ -479,6 +481,11 @@ namespace NativeWebSocket
                 foreach (var header in headers)
                 {
                     m_Socket.Options.SetRequestHeader(header.Key, header.Value);
+                }
+
+                if (KeepAliveInterval > 0)
+                {
+                    m_Socket.Options.KeepAliveInterval = TimeSpan.FromMilliseconds(KeepAliveInterval);
                 }
 
                 if (!dispatcherRegistered)

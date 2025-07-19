@@ -26,7 +26,15 @@ namespace Colyseus
         /// </summary>
         public bool useSecureProtocol = false;
 
+        /// <summary>
+        ///     Enable lz4 compression extension for Msgpack
+        /// </summary>
         public bool useMessagePackLz4 = false;
+
+        /// <summary>
+        ///     Set keep alive interal of websocket, in miliseconds
+        /// </summary>
+        public long keepAliveInterval = 10000;
 
         /// <summary>
         /// Internal wrapper class for a <see cref="UnityEngine.Networking.UnityWebRequest"/> Request header since Unity cant serialize arrays

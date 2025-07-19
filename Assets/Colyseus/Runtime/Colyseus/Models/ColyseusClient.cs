@@ -420,7 +420,10 @@ namespace Colyseus
 				Query = string.Join("&", list.ToArray())
 			};
 
-			return new ColyseusConnection(uriBuilder.ToString(), headers);
+			return new ColyseusConnection(uriBuilder.ToString(), headers)
+			{
+				KeepAliveInterval = Settings.keepAliveInterval
+			};
 		}
 	}
 }
