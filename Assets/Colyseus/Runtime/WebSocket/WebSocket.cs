@@ -649,7 +649,24 @@ namespace NativeWebSocket
 
                     if (result.MessageType != WebSocketMessageType.Close)
                     {
-                        if (OnParseMessageThreaded?.Invoke(rental.Value, out var str, out var b, out var obj) == true)
+                        var parseSuccess = false;
+                        string str = default;
+                        byte b = default;
+                        object obj = default;
+
+                        try
+                        {
+                            if (OnParseMessageThreaded?.Invoke(rental.Value, out str, out b, out obj) == true)
+                            {
+                                parseSuccess = true;
+                            }
+                        }
+                        catch (Exception e)
+                        {
+                            Debug.LogError(e);
+                        }
+
+                        if (parseSuccess)
                         {
                             if (string.IsNullOrEmpty(str))
                             {
