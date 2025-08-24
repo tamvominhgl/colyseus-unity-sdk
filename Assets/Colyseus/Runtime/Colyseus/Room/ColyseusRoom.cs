@@ -691,7 +691,7 @@ namespace Colyseus
             }
         }
 
-        protected bool ParseMessageThreaded(ReadOnlySequence<byte> sequence, out string str, out byte b, out object obj)
+        protected int ParseMessageThreaded(ReadOnlySequence<byte> sequence, out string str, out byte b, out object obj)
         {
             var reader = new SequenceReader<byte>(sequence);
 
@@ -738,13 +738,25 @@ namespace Colyseus
                 {
                     if (reader.Remaining > 0)
                     {
-                        obj = handler.Parse(reader.Sequence.Slice(reader.Consumed));
+                        try
+                        {
+                            obj = handler.Parse(reader.Sequence.Slice(reader.Consumed));
+                        }
+                        catch (Exception e)
+                        {
+                            Debug.LogError(e);
+
+                            str = default;
+                            b = default;
+                            obj = default;
+                            return -1;
+                        }
                     }
                     else
                     {
                         obj = default;
                     }
-                    return true;
+                    return 1;
                 }
                 else
                 {
@@ -755,7 +767,7 @@ namespace Colyseus
             str = default;
             b = default;
             obj = default;
-            return false;
+            return 0;
         }
 
         protected void OnMessageString(string str, object obj)

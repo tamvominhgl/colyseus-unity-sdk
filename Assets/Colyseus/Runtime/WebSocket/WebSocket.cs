@@ -107,7 +107,7 @@ namespace NativeWebSocket
     public delegate void WebSocketErrorEventHandler(string errorMsg);
     public delegate void WebSocketCloseEventHandler(int closeCode);
 
-    public delegate bool ParseMessageHandler(ReadOnlySequence<byte> bytes, out string str, out byte b, out object message);
+    public delegate int ParseMessageHandler(ReadOnlySequence<byte> bytes, out string str, out byte b, out object message);
     public delegate void MessageStringHandler(string str, object message);
     public delegate void MessageByteHandler(byte b, object message);
 
@@ -656,24 +656,13 @@ namespace NativeWebSocket
 
                     if (result.MessageType != WebSocketMessageType.Close)
                     {
-                        var parseSuccess = false;
                         string str = default;
                         byte b = default;
                         object obj = default;
 
-                        try
-                        {
-                            if (OnParseMessageThreaded?.Invoke(rental.Value, out str, out b, out obj) == true)
-                            {
-                                parseSuccess = true;
-                            }
-                        }
-                        catch (Exception e)
-                        {
-                            Debug.LogError(e);
-                        }
+                        var parseResult = OnParseMessageThreaded?.Invoke(rental.Value, out str, out b, out obj);
 
-                        if (parseSuccess)
+                        if (parseResult > 0)
                         {
                             if (string.IsNullOrEmpty(str))
                             {
@@ -684,6 +673,10 @@ namespace NativeWebSocket
                                 m_Events.Enqueue(new Event(str, obj));
                             }
                             rental.Dispose();
+                        }
+                        else if (parseResult < 0)
+                        {
+                            // there's parsing error, don't enqueue message to avoid double parsing
                         }
                         else
                         {
