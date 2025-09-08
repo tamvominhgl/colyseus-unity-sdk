@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.Networking;
 using System.IO;
@@ -79,7 +80,7 @@ namespace Colyseus
         }
 #endif
 
-        public async Awaitable<string> Request(string uriMethod, string uriPath, Dictionary<string, object> jsonBody = null, Dictionary<string, string> headers = null)
+        public async Task<string> Request(string uriMethod, string uriPath, Dictionary<string, object> jsonBody = null, Dictionary<string, string> headers = null)
         {
             using (UnityWebRequest req = new UnityWebRequest())
             {

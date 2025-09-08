@@ -1,6 +1,7 @@
 using UnityEngine;
 using System;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 using NativeWebSocket;
 using System.Buffers;
 // ReSharper disable InconsistentNaming
@@ -19,12 +20,12 @@ namespace Colyseus
 
         }
 
-        public async Awaitable Send(ReadOnlyMemory<byte> bytes)
+        public async Task Send(ReadOnlyMemory<byte> bytes)
         {
             await SendMessage(System.Net.WebSockets.WebSocketMessageType.Binary, bytes);
         }
 
-        public async Awaitable Send(ReadOnlySequence<byte> sequence)
+        public async Task Send(ReadOnlySequence<byte> sequence)
         {
             if (sequence.IsSingleSegment)
             {

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 using UnityEngine;
 #if USE_MESSAGEPACK_CSHARP
 using MessagePack;

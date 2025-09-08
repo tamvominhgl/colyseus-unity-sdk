@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
+using System.Threading.Tasks;
 using Colyseus.Schema;
 using NativeWebSocket;
 using UnityEngine;
@@ -49,14 +50,14 @@ namespace Colyseus
         ///     Connection task
         /// </summary>
         /// <returns>Task that completes upon connection (or failure to connect)</returns>
-        Awaitable Connect();
+        Task Connect();
 
         /// <summary>
         ///     Disconnection task
         /// </summary>
         /// <param name="consented">True if by user's choice, false otherwise</param>
         /// <returns>Task that completes upon Leaving</returns>
-        Awaitable Leave(bool consented);
+        Task Leave(bool consented);
     }
 
     [Serializable]
@@ -206,7 +207,7 @@ namespace Colyseus
         ///     Implementation of <see cref="IColyseusRoom.Connect" />
         /// </summary>
         /// <returns>Response from <see cref="Connection"></see>.Connect()</returns>
-        public async Awaitable Connect()
+        public async Task Connect()
         {
             await Connection.Connect();
         }
@@ -216,7 +217,7 @@ namespace Colyseus
         /// </summary>
         /// <param name="consented">If the user agreed to this disconnection</param>
         /// <returns>Connection closure depending on user consent</returns>
-        public async Awaitable Leave(bool consented = true)
+        public async Task Leave(bool consented = true)
         {
             if (!Connection.IsOpen) {
                 return;
@@ -304,7 +305,7 @@ namespace Colyseus
         ///     Send a message by number type, without payload
         /// </summary>
         /// <param name="type">Message type</param>
-        public async Awaitable Send(byte type)
+        public async Task Send(byte type)
         {
             var rent = ArrayPool<byte>.Shared.Rent(3);
             try
@@ -334,7 +335,7 @@ namespace Colyseus
         /// </summary>
         /// <param name="type">Message type</param>
         /// <param name="message">Message payload</param>
-        public async Awaitable Send<MessageType>(byte type, MessageType message)
+        public async Task Send<MessageType>(byte type, MessageType message)
         {
 #if USE_MESSAGEPACK_CSHARP
             using var rental = SequencePool.Shared.Rent();
@@ -376,7 +377,7 @@ namespace Colyseus
         ///     Send a message by string type, without payload
         /// </summary>
         /// <param name="type">Message type</param>
-        public async Awaitable Send(string type)
+        public async Task Send(string type)
         {
 #if USE_MESSAGEPACK_CSHARP
             var rent = ArrayPool<byte>.Shared.Rent(type.Length * 2 + 6);
@@ -409,7 +410,7 @@ namespace Colyseus
         /// </summary>
         /// <param name="type">Message type</param>
         /// <param name="message">Message payload</param>
-        public async Awaitable Send<MessageType>(string type, MessageType message)
+        public async Task Send<MessageType>(string type, MessageType message)
         {
 #if USE_MESSAGEPACK_CSHARP
             using var rental = SequencePool.Shared.Rent();
@@ -444,7 +445,7 @@ namespace Colyseus
         /// </summary>
         /// <param name="type">Message type</param>
         /// <param name="bytes">Message payload</param>
-        public async Awaitable SendBytes(byte type, byte[] bytes)
+        public async Task SendBytes(byte type, byte[] bytes)
         {
 #if USE_MESSAGEPACK_CSHARP
             var rent = ArrayPool<byte>.Shared.Rent(bytes.Length + 3);
@@ -492,7 +493,7 @@ namespace Colyseus
         /// </summary>
         /// <param name="type">Message type</param>
         /// <param name="bytes">Message payload</param>
-        public async Awaitable SendBytes(string type, byte[] bytes)
+        public async Task SendBytes(string type, byte[] bytes)
         {
 #if USE_MESSAGEPACK_CSHARP
             var rent = ArrayPool<byte>.Shared.Rent(bytes.Length + type.Length * 2 + 6);
