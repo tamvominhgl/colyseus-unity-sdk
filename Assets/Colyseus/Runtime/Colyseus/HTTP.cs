@@ -3,8 +3,6 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Networking;
 using System.IO;
-using System.Text;
-
 #if USE_MESSAGEPACK_CSHARP
 using MessagePack;
 #else
@@ -81,7 +79,7 @@ namespace Colyseus
         }
 #endif
 
-        public async Awaitable<string> Request(string uriMethod, string uriPath, Dictionary<string, object> jsonBody = null, Dictionary<string, string> headers = null, string postData = null)
+        public async Awaitable<string> Request(string uriMethod, string uriPath, Dictionary<string, object> jsonBody = null, Dictionary<string, string> headers = null)
         {
             using (UnityWebRequest req = new UnityWebRequest())
             {
@@ -94,14 +92,7 @@ namespace Colyseus
                 //Debug.Log($"Requesting from URL: {req.url}");
 
                 // Send JSON on request body
-                if (!string.IsNullOrEmpty(postData))
-                {
-                    req.uploadHandler = new UploadHandlerRaw(Encoding.UTF8.GetBytes(postData))
-                    {
-                        contentType = "application/json"
-                    };
-                }
-                else if (jsonBody != null)
+                if (jsonBody != null)
                 {
                     MemoryStream jsonBodyStream = new MemoryStream();
 #if USE_MESSAGEPACK_CSHARP
