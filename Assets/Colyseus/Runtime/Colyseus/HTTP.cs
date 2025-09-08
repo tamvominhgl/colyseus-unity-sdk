@@ -81,7 +81,7 @@ namespace Colyseus
         }
 #endif
 
-        public async Awaitable<string> Request(string uriMethod, string uriPath, Dictionary<string, object> jsonBody = null, Dictionary<string, string> headers = null, byte[] postData = null)
+        public async Awaitable<string> Request(string uriMethod, string uriPath, Dictionary<string, object> jsonBody = null, Dictionary<string, string> headers = null, string postData = null)
         {
             using (UnityWebRequest req = new UnityWebRequest())
             {
@@ -94,9 +94,9 @@ namespace Colyseus
                 //Debug.Log($"Requesting from URL: {req.url}");
 
                 // Send JSON on request body
-                if (postData != null)
+                if (!string.IsNullOrEmpty(postData))
                 {
-                    req.uploadHandler = new UploadHandlerRaw(postData)
+                    req.uploadHandler = new UploadHandlerRaw(Encoding.UTF8.GetBytes(postData))
                     {
                         contentType = "application/json"
                     };

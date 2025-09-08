@@ -93,7 +93,7 @@ namespace Colyseus
 		/// <param name="headers">Dictionary of headers to pass to the server when we create/join the room</param>
 		/// <typeparam name="T">Type of <see cref="ColyseusRoom{T}" /> we want to join or create</typeparam>
 		/// <returns><see cref="ColyseusRoom{T}" /> via async task</returns>
-		public async Awaitable<ColyseusRoom<T>> JoinOrCreate<T>(string roomName, Dictionary<string, object> options = null, Dictionary<string, string> headers = null, byte[] postData = null)
+		public async Awaitable<ColyseusRoom<T>> JoinOrCreate<T>(string roomName, Dictionary<string, object> options = null, Dictionary<string, string> headers = null, string postData = null)
 			where T : Schema.Schema
 		{
 			return await CreateMatchMakeRequest<T>("joinOrCreate", roomName, options, headers, postData);
@@ -331,7 +331,7 @@ namespace Colyseus
 		/// <returns><see cref="ColyseusRoom{T}" /> we have matched with via async task</returns>
 		/// <exception cref="Exception">Thrown if there is a network related error</exception>
 		/// <exception cref="MatchMakeException">Thrown if there is an error in the match making process on the server side</exception>
-		protected async Awaitable<ColyseusRoom<T>> CreateMatchMakeRequest<T>(string method, string roomName, Dictionary<string, object> options, Dictionary<string, string> headers, byte[] postData = null)
+		protected async Awaitable<ColyseusRoom<T>> CreateMatchMakeRequest<T>(string method, string roomName, Dictionary<string, object> options, Dictionary<string, string> headers, string postData = null)
 			where T : Schema.Schema
 		{
 			if (options == null)
