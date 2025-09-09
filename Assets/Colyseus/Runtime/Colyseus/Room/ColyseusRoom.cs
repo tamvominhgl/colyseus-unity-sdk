@@ -209,6 +209,7 @@ namespace Colyseus
         /// <returns>Response from <see cref="Connection"></see>.Connect()</returns>
         public async Task Connect()
         {
+            Debug.Log($"websocket {SessionId} connect async");
             await Connection.Connect();
         }
 
