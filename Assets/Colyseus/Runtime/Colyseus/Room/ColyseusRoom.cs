@@ -263,7 +263,7 @@ namespace Colyseus
             room ??= this;
             room.Connection = connection;
 
-            connection.OnOpen += () => Debug.Log($"websocket {SessionId} connected");
+            connection.OnOpen += () => Debug.Log($"websocket {SessionId} opened");
             connection.OnClose += code =>
             {
                 if (devModeCloseCallback == null || code == 1006)

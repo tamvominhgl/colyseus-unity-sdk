@@ -390,7 +390,6 @@ namespace NativeWebSocket
         internal enum EventType
         {
             Unknown,
-            Open,
             Message,
             Error,
 
@@ -494,11 +493,11 @@ namespace NativeWebSocket
                     MainThreadUtil.OnUpdate += DispatchMessageQueue;
                 }
 
-                await m_Socket.ConnectAsync(uri, m_CancellationToken).ConfigureAwait(false);
+                await m_Socket.ConnectAsync(uri, m_CancellationToken);
 
-                m_Events.Enqueue(new Event(EventType.Open));
+                OnOpen?.Invoke();
 
-                await Receive().ConfigureAwait(false);
+                await Receive();
             }
             catch (Exception ex)
             {
@@ -601,9 +600,6 @@ namespace NativeWebSocket
                 {
                     switch (evt.Type)
                     {
-                        case EventType.Open:
-                            OnOpen?.Invoke();
-                            break;
                         case EventType.Message:
                             {
                                 using var rental = evt.Rental;
