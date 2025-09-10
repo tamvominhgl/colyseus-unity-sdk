@@ -655,8 +655,9 @@ namespace Colyseus
 
                 if (Decode.NumberCheck(ref reader))
                 {
-                    type = Decode.DecodeNumber(ref reader);
-                    OnMessageByteHandlers.TryGetValue((byte)type, out handler);
+                    var number = Decode.DecodeNumber(ref reader);
+                    type = number;
+                    OnMessageByteHandlers.TryGetValue((byte)number, out handler);
                 }
                 else
                 {
