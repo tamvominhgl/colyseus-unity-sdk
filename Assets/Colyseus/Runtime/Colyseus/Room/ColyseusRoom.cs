@@ -764,6 +764,10 @@ namespace Colyseus
                 else
                 {
                     Debug.LogWarning($"room.OnMessage not registered for: '{type}'");
+                    str = default;
+                    b = default;
+                    obj = default;
+                    return -1;
                 }
             }
 
