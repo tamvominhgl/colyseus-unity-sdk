@@ -561,9 +561,13 @@ namespace NativeWebSocket
                 return;
             }
 
+            var semaphoreEntered = false;
+
             try
             {
                 await m_Semaphore.WaitAsync(m_CancellationToken).ConfigureAwait(false);
+
+                semaphoreEntered = true;
 
                 if (State != WebSocketState.Open)
                 {
@@ -587,7 +591,10 @@ namespace NativeWebSocket
             }
             finally
             {
-                m_Semaphore?.Release();
+                if (semaphoreEntered)
+                {
+                    m_Semaphore?.Release();
+                }
             }
         }
 
