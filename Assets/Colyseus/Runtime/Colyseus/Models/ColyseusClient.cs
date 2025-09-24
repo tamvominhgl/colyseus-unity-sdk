@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Threading.Tasks;
 using UnityEngine;
 
 // ReSharper disable InconsistentNaming
@@ -94,7 +93,7 @@ namespace Colyseus
 		/// <param name="headers">Dictionary of headers to pass to the server when we create/join the room</param>
 		/// <typeparam name="T">Type of <see cref="ColyseusRoom{T}" /> we want to join or create</typeparam>
 		/// <returns><see cref="ColyseusRoom{T}" /> via async task</returns>
-		public async Task<ColyseusRoom<T>> JoinOrCreate<T>(string roomName, Dictionary<string, object> options = null, Dictionary<string, string> headers = null)
+		public async Awaitable<ColyseusRoom<T>> JoinOrCreate<T>(string roomName, Dictionary<string, object> options = null, Dictionary<string, string> headers = null)
 			where T : Schema.Schema
 		{
 			return await CreateMatchMakeRequest<T>("joinOrCreate", roomName, options, headers);
@@ -108,7 +107,7 @@ namespace Colyseus
 		/// <param name="headers">Dictionary of headers to pass to the server when we create the room</param>
 		/// <typeparam name="T">Type of <see cref="ColyseusRoom{T}" /> we want to create</typeparam>
 		/// <returns><see cref="ColyseusRoom{T}" /> via async task</returns>
-		public async Task<ColyseusRoom<T>> Create<T>(string roomName, Dictionary<string, object> options = null, Dictionary<string, string> headers = null)
+		public async Awaitable<ColyseusRoom<T>> Create<T>(string roomName, Dictionary<string, object> options = null, Dictionary<string, string> headers = null)
 			where T : Schema.Schema
 		{
 			return await CreateMatchMakeRequest<T>("create", roomName, options, headers);
@@ -122,7 +121,7 @@ namespace Colyseus
 		/// <param name="headers">Dictionary of headers to pass to the server when we join the room</param>
 		/// <typeparam name="T">Type of <see cref="ColyseusRoom{T}" /> we want to join</typeparam>
 		/// <returns><see cref="ColyseusRoom{T}" /> via async task</returns>
-		public async Task<ColyseusRoom<T>> Join<T>(string roomName, Dictionary<string, object> options = null, Dictionary<string, string> headers = null)
+		public async Awaitable<ColyseusRoom<T>> Join<T>(string roomName, Dictionary<string, object> options = null, Dictionary<string, string> headers = null)
 			where T : Schema.Schema
 		{
 			return await CreateMatchMakeRequest<T>("join", roomName, options, headers);
@@ -136,7 +135,7 @@ namespace Colyseus
 		/// <param name="headers">Dictionary of headers to pass to the server when we join the room</param>
 		/// <typeparam name="T">Type of <see cref="ColyseusRoom{T}" /> we want to join</typeparam>
 		/// <returns><see cref="ColyseusRoom{T}" /> via async task</returns>
-		public async Task<ColyseusRoom<T>> JoinById<T>(string roomId, Dictionary<string, object> options = null, Dictionary<string, string> headers = null)
+		public async Awaitable<ColyseusRoom<T>> JoinById<T>(string roomId, Dictionary<string, object> options = null, Dictionary<string, string> headers = null)
 			where T : Schema.Schema
 		{
 			return await CreateMatchMakeRequest<T>("joinById", roomId, options, headers);
@@ -149,7 +148,7 @@ namespace Colyseus
 		/// <param name="headers">Dictionary of headers to pass to the server when we reconnect to the room</param>
 		/// <typeparam name="T">Type of <see cref="ColyseusRoom{T}" /> we want to reconnect with</typeparam>
 		/// <returns><see cref="ColyseusRoom{T}" /> via async task</returns>
-		public async Task<ColyseusRoom<T>> Reconnect<T>(ReconnectionToken reconnectionToken, Dictionary<string, string> headers = null)
+		public async Awaitable<ColyseusRoom<T>> Reconnect<T>(ReconnectionToken reconnectionToken, Dictionary<string, string> headers = null)
 			where T : Schema.Schema
 		{
 			Dictionary<string, object> options = new Dictionary<string, object>();
@@ -167,7 +166,7 @@ namespace Colyseus
 		/// <param name="options">Dictionary of options to pass to the room upon creation/joining</param>
 		/// <param name="headers">Dictionary of headers to pass to the server when we create/join the room</param>
 		/// <returns><see cref="ColyseusRoom{T}" /> via async task</returns>
-		public async Task<ColyseusRoom<NoState>> JoinOrCreate(string roomName, Dictionary<string, object> options = null, Dictionary<string, string> headers = null)
+		public async Awaitable<ColyseusRoom<NoState>> JoinOrCreate(string roomName, Dictionary<string, object> options = null, Dictionary<string, string> headers = null)
 		{
 			return await CreateMatchMakeRequest<NoState>("joinOrCreate", roomName, options, headers);
 		}
@@ -179,7 +178,7 @@ namespace Colyseus
 		/// <param name="options">Dictionary of options to pass to the room upon creation</param>
 		/// <param name="headers">Dictionary of headers to pass to the server when we create the room</param>
 		/// <returns><see cref="ColyseusRoom{T}" /> via async task</returns>
-		public async Task<ColyseusRoom<NoState>> Create(string roomName, Dictionary<string, object> options = null,
+		public async Awaitable<ColyseusRoom<NoState>> Create(string roomName, Dictionary<string, object> options = null,
 			Dictionary<string, string> headers = null)
 		{
 			return await CreateMatchMakeRequest<NoState>("create", roomName, options, headers);
@@ -192,7 +191,7 @@ namespace Colyseus
 		/// <param name="options">Dictionary of options to pass to the room upon joining</param>
 		/// <param name="headers">Dictionary of headers to pass to the server when we join the room</param>
 		/// <returns><see cref="ColyseusRoom{T}" /> via async task</returns>
-		public async Task<ColyseusRoom<NoState>> Join(string roomName, Dictionary<string, object> options = null,
+		public async Awaitable<ColyseusRoom<NoState>> Join(string roomName, Dictionary<string, object> options = null,
 			Dictionary<string, string> headers = null)
 		{
 			return await CreateMatchMakeRequest<NoState>("join", roomName, options, headers);
@@ -205,7 +204,7 @@ namespace Colyseus
 		/// <param name="options">Dictionary of options to pass to the room upon joining</param>
 		/// <param name="headers">Dictionary of headers to pass to the server when we join the room</param>
 		/// <returns><see cref="ColyseusRoom{T}" /> via async task</returns>
-		public async Task<ColyseusRoom<NoState>> JoinById(string roomId, Dictionary<string, object> options = null,
+		public async Awaitable<ColyseusRoom<NoState>> JoinById(string roomId, Dictionary<string, object> options = null,
 			Dictionary<string, string> headers = null)
 		{
 			return await CreateMatchMakeRequest<NoState>("joinById", roomId, options, headers);
@@ -218,7 +217,7 @@ namespace Colyseus
 		/// <param name="sessionId">Previously connected sessionId</param>
 		/// <param name="headers">Dictionary of headers to pass to the server when we reconnect to the room</param>
 		/// <returns><see cref="ColyseusRoom{T}" /> via async task</returns>
-		public async Task<ColyseusRoom<NoState>> Reconnect(string roomId, string sessionId,
+		public async Awaitable<ColyseusRoom<NoState>> Reconnect(string roomId, string sessionId,
 			Dictionary<string, string> headers = null)
 		{
 			Dictionary<string, object> options = new Dictionary<string, object>();
@@ -234,7 +233,7 @@ namespace Colyseus
 		/// <param name="previousRoom">Previous ColyseusRoom{T} instance to re-establish the server connection: Please do not use this devMode param for general purposes</param>
 		/// <typeparam name="T">Type of <see cref="ColyseusRoom{T}" /> we're consuming the seat from</typeparam>
 		/// <returns><see cref="ColyseusRoom{T}" /> in which we now have a seat via async task</returns>
-		public async Task<ColyseusRoom<T>> ConsumeSeatReservation<T>(ColyseusMatchMakeResponse response, Dictionary<string, string> headers = null, ColyseusRoom<T> previousRoom = null)
+		public async Awaitable<ColyseusRoom<T>> ConsumeSeatReservation<T>(ColyseusMatchMakeResponse response, Dictionary<string, string> headers = null, ColyseusRoom<T> previousRoom = null)
 			where T : Schema.Schema
 		{
 			ColyseusRoom<T> room = new ColyseusRoom<T>(response.room.name)
@@ -262,7 +261,7 @@ namespace Colyseus
 				int devModeRetryAttempt = 0;
 				const int devModeMaxRetryCount = 8;
 
-				async Task retryConnection()
+				async Awaitable retryConnection()
 				{
 					devModeRetryAttempt++;
 					try
@@ -275,7 +274,7 @@ namespace Colyseus
 						if (devModeRetryAttempt < devModeMaxRetryCount)
 						{
 							Debug.Log($"<color=yellow>[Colyseus devMode]:</color> retrying... ({devModeRetryAttempt} out of {devModeMaxRetryCount})");
-							await Task.Delay(2000);
+							await Awaitable.WaitForSecondsAsync(2);
 							await retryConnection();
 						}
 						else
@@ -285,7 +284,7 @@ namespace Colyseus
 					}
 				}
 
-				await Task.Delay(2000);
+				await Awaitable.WaitForSecondsAsync(2);
 				await retryConnection();
 			};
 
@@ -297,7 +296,7 @@ namespace Colyseus
 				: null
 			);
 
-			TaskCompletionSource<ColyseusRoom<T>> tcs = new TaskCompletionSource<ColyseusRoom<T>>();
+			var tcs = new AwaitableCompletionSource<ColyseusRoom<T>>();
 
 			void OnError(int code, string message)
 			{
@@ -318,7 +317,7 @@ namespace Colyseus
 			targetRoom.Connect();
 #pragma warning restore 4014
 
-			return await tcs.Task;
+			return await tcs.Awaitable;
 		}
 
 		/// <summary>
@@ -332,7 +331,7 @@ namespace Colyseus
 		/// <returns><see cref="ColyseusRoom{T}" /> we have matched with via async task</returns>
 		/// <exception cref="Exception">Thrown if there is a network related error</exception>
 		/// <exception cref="MatchMakeException">Thrown if there is an error in the match making process on the server side</exception>
-		protected async Task<ColyseusRoom<T>> CreateMatchMakeRequest<T>(string method, string roomName, Dictionary<string, object> options, Dictionary<string, string> headers)
+		protected async Awaitable<ColyseusRoom<T>> CreateMatchMakeRequest<T>(string method, string roomName, Dictionary<string, object> options, Dictionary<string, string> headers)
 			where T : Schema.Schema
 		{
 			if (options == null)
