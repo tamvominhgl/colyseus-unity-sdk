@@ -301,7 +301,7 @@ namespace Colyseus
 			void OnError(int code, string message)
 			{
 				targetRoom.OnError -= OnError;
-				tcs.SetException(new MatchMakeException(code, message));
+				tcs.SetException(new MatchMakeException(code, $"{message}\n{response.room.publicAddress}"));
 			}
 
 			void OnJoin()
@@ -355,7 +355,7 @@ namespace Colyseus
 
 			if (!string.IsNullOrEmpty(response.error))
 			{
-				throw new MatchMakeException(response.code, response.error);
+				throw new MatchMakeException(response.code, $"{response.error}\n{_colyseusSettings.colyseusServerAddress}");
 			}
 
 			// forward reconnection token on reconnect
