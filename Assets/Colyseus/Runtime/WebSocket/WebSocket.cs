@@ -568,7 +568,8 @@ namespace NativeWebSocket
 
                 if (State != WebSocketState.Open)
                 {
-                    throw new InvalidOperationException("WebSocket is not ready!");
+                    Debug.LogError("WebSocket not in Open state to send data");
+                    return;
                 }
 
                 await m_Socket.SendAsync(buffer, messageType, endOfMessage, m_CancellationToken).ConfigureAwait(false);
