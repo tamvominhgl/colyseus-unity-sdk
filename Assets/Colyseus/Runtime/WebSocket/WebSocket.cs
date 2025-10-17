@@ -528,9 +528,6 @@ namespace NativeWebSocket
                     m_Socket.Dispose();
                 }
 
-                m_Semaphore?.Dispose();
-                m_Semaphore = null;
-
                 MainThreadUtil.OnUpdate -= DispatchMessageQueue;
             }
         }
