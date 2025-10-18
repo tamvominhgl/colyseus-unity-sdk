@@ -5,7 +5,11 @@ using System.Net.WebSockets;
 using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading;
-using System.Threading.Tasks;
+#if UNITY_2023_1_OR_NEWER
+using Task = UnityEngine.Awaitable;
+#else
+using Task = System.Threading.Tasks.Task;
+#endif
 
 using AOT;
 using System.Runtime.InteropServices;
@@ -14,6 +18,7 @@ using System.Collections;
 using System.Collections.Concurrent;
 using Colyseus;
 using System.Buffers;
+using System.Threading.Tasks;
 
 [DefaultExecutionOrder(-1)]
 public class MainThreadUtil : MonoBehaviour
@@ -382,11 +387,9 @@ namespace NativeWebSocket
         private CancellationTokenSource m_TokenSource;
         private CancellationToken m_CancellationToken;
 
-        private SemaphoreSlim m_Semaphore = new(1, 1);
-        private readonly ConcurrentQueue<Event> m_Events = new();
-
         private bool dispatcherRegistered = false;
 
+        private readonly ConcurrentQueue<Event> m_Events = new();
         internal enum EventType
         {
             Unknown,
@@ -445,6 +448,36 @@ namespace NativeWebSocket
             }
         }
 
+        private readonly object SendingMessageLock = new();
+        private bool isRunningSendTask = false;
+        private readonly Queue<OutgoingMessage> m_outgoingQueue = new();
+        internal readonly struct OutgoingMessage
+        {
+            public readonly bool IsRental;
+            public readonly ReadOnlyMemory<byte> Memory;
+            public readonly SequencePool.Rental Rental;
+
+            public OutgoingMessage(ReadOnlyMemory<byte> memory)
+            {
+                IsRental = false;
+                Memory = memory;
+                Rental = default;
+            }
+
+            public OutgoingMessage(SequencePool.Rental rental)
+            {
+                IsRental = true;
+                Memory = default;
+                Rental = rental;
+            }
+
+            public static implicit operator OutgoingMessage(ReadOnlyMemory<byte> memory)
+                => new(memory);
+
+            public static implicit operator OutgoingMessage(SequencePool.Rental rental)
+                => new(rental);               
+        }
+
         public WebSocket(string url, Dictionary<string, string> headers = null)
         {
             uri = new Uri(url);
@@ -468,7 +501,7 @@ namespace NativeWebSocket
             m_TokenSource?.Cancel();
         }
 
-        public async Awaitable Connect()
+        public async Task Connect()
         {
             try
             {
@@ -502,7 +535,7 @@ namespace NativeWebSocket
             catch (Exception ex)
             {
 #if UNITY_2023_1_OR_NEWER
-                await Awaitable.MainThreadAsync();
+                await Task.MainThreadAsync();
 #else
                 await new WaitForUpdate();
 #endif
@@ -522,13 +555,20 @@ namespace NativeWebSocket
             }
             finally
             {
-                if (m_Socket != null)
-                {
-                    m_TokenSource.Cancel();
-                    m_Socket.Dispose();
-                }
-
                 MainThreadUtil.OnUpdate -= DispatchMessageQueue;
+                dispatcherRegistered = false;
+
+                m_TokenSource.Cancel();
+
+#if UNITY_2023_1_OR_NEWER
+                await Task.BackgroundThreadAsync();
+#else
+                await new WaitForBackgroundThread();
+#endif
+
+                DiscardOutgoingQueue();
+
+                m_Socket?.Dispose();
             }
         }
 
@@ -541,30 +581,21 @@ namespace NativeWebSocket
             _ => WebSocketState.Closed
         };
 
-        // public Task Send(byte[] bytes)
-        //     => SendMessage(WebSocketMessageType.Binary, bytes);
-
-        // public Task SendText(string message)
-        //     => SendMessage(WebSocketMessageType.Text, Encoding.UTF8.GetBytes(message));
-
-        protected async Awaitable SendMessage(WebSocketMessageType messageType, ReadOnlyMemory<byte> buffer, bool endOfMessage = true)
+        protected async Task SendMessage(ReadOnlyMemory<byte> buffer)
         {
-            // Return control to the calling method immediately.
-            // await Task.Yield ();
-
-            // Make sure we have data.
             if (buffer.Length == 0)
             {
                 return;
             }
 
-            var semaphoreEntered = false;
+            bool needRunningTask = false;
 
-            try
+            lock (SendingMessageLock)
             {
-                await m_Semaphore.WaitAsync(m_CancellationToken).ConfigureAwait(false);
-
-                semaphoreEntered = true;
+                if (m_CancellationToken.IsCancellationRequested)
+                {
+                    return;
+                }
 
                 if (State != WebSocketState.Open)
                 {
@@ -572,7 +603,95 @@ namespace NativeWebSocket
                     return;
                 }
 
-                await m_Socket.SendAsync(buffer, messageType, endOfMessage, m_CancellationToken).ConfigureAwait(false);
+                m_outgoingQueue.Enqueue(buffer);
+                if (!isRunningSendTask)
+                {
+                    isRunningSendTask = true;
+                    needRunningTask = true;
+                }
+            }
+
+            if (needRunningTask)
+            {
+                _ = RunSendingTask();
+            }
+        }
+
+        internal async Task SendMessage(SequencePool.Rental rental)
+        {
+            if (rental.Value.Length == 0)
+            {
+                rental.Dispose();
+                return;
+            }
+
+            bool needRunningTask = false;
+
+            lock (SendingMessageLock)
+            {
+                if (m_CancellationToken.IsCancellationRequested)
+                {
+                    rental.Dispose();
+                    return;
+                }
+
+                if (State != WebSocketState.Open)
+                {
+                    rental.Dispose();
+                    Debug.LogError("WebSocket not in Open state to send data");
+                    return;
+                }
+
+                m_outgoingQueue.Enqueue(rental);
+                if (!isRunningSendTask)
+                {
+                    isRunningSendTask = true;
+                    needRunningTask = true;
+                }
+            }
+
+            if (needRunningTask)
+            {
+                _ = RunSendingTask();
+            }
+        }
+
+        private async Task RunSendingTask()
+        {
+            while (true)
+            {
+                OutgoingMessage message;
+
+                lock (SendingMessageLock)
+                {
+                    if (!m_outgoingQueue.TryDequeue(out message))
+                    {
+                        isRunningSendTask = false;
+                        return;
+                    }
+                }
+
+                if (message.IsRental)
+                {
+                    await SendOutgoing(message.Rental);
+                }
+                else
+                {
+                    await SendOutgoing(message.Memory);
+                }
+            }
+        }
+
+        private async Task SendOutgoing(ReadOnlyMemory<byte> buffer)
+        {
+            if (State != WebSocketState.Open || m_CancellationToken.IsCancellationRequested)
+            {
+                return;
+            }
+
+            try
+            {
+                await m_Socket.SendAsync(buffer, WebSocketMessageType.Binary, true, m_CancellationToken).ConfigureAwait(false);
             }
             catch (Exception e)
             {
@@ -587,13 +706,90 @@ namespace NativeWebSocket
                         break;
                 }
             }
-            finally
+        }
+
+        private async Task SendOutgoing(SequencePool.Rental outgoing)
+        {
+            using var rental = outgoing;
+
+            if (State != WebSocketState.Open || m_CancellationToken.IsCancellationRequested)
             {
-                if (semaphoreEntered)
+                return;
+            }
+
+            try
+            {
+                ReadOnlySequence<byte> sequence = rental.Value;
+                if (sequence.IsSingleSegment)
                 {
-                    m_Semaphore?.Release();
+                    await m_Socket.SendAsync(sequence.First, WebSocketMessageType.Binary, true, m_CancellationToken).ConfigureAwait(false);
+                }
+                else
+                {
+                    var enumerator = sequence.GetEnumerator();
+
+                    ReadOnlyMemory<byte> current = default;
+                    ReadOnlyMemory<byte> next = default;
+
+                    TryGetNextMemory(ref enumerator, ref current);
+                    while (true)
+                    {
+                        bool hasNext = TryGetNextMemory(ref enumerator, ref next);
+                        if (hasNext)
+                        {
+                            await m_Socket.SendAsync(current, WebSocketMessageType.Binary, false, m_CancellationToken).ConfigureAwait(false);
+                            current = next;
+                        }
+                        else
+                        {
+                            await m_Socket.SendAsync(current, WebSocketMessageType.Binary, true, m_CancellationToken).ConfigureAwait(false);
+                            break;
+                        }
+                    }
                 }
             }
+            catch (Exception e)
+            {
+                switch (e)
+                {
+                    case TaskCanceledException:
+                    case OperationCanceledException:
+                        break;
+                    default:
+                        Debug.LogException(e);
+                        m_Events.Enqueue(new Event(EventType.Error, e.Message));
+                        break;
+                }
+            }
+        }
+
+        private void DiscardOutgoingQueue()
+        {
+            lock (SendingMessageLock)
+            {
+                while (m_outgoingQueue.TryDequeue(out var message))
+                {
+                    if (message.IsRental)
+                    {
+                        message.Rental.Dispose();
+                    }
+                }
+            }
+        }
+        
+        static bool TryGetNextMemory(ref ReadOnlySequence<byte>.Enumerator enumerator, ref ReadOnlyMemory<byte> memory)
+        {
+            while (memory.Length == 0)
+            {
+                if (!enumerator.MoveNext())
+                {
+                    return false;
+                }
+
+                memory = enumerator.Current;
+            }
+
+            return true;
         }
 
         // simple dispatcher for queued messages.
@@ -630,11 +826,11 @@ namespace NativeWebSocket
             }
         }
 
-        async Awaitable Receive()
+        async Task Receive()
         {
             int closeCode = (int)WebSocketCloseCode.Abnormal;
 #if UNITY_2023_1_OR_NEWER
-            await Awaitable.BackgroundThreadAsync();
+            await Task.BackgroundThreadAsync();
 #else
             await new WaitForBackgroundThread();
 #endif
@@ -702,7 +898,7 @@ namespace NativeWebSocket
                 rental.Dispose();
 
 #if UNITY_2023_1_OR_NEWER
-                await Awaitable.MainThreadAsync();
+                await Task.MainThreadAsync();
 #else
                 await new WaitForUpdate();
 #endif
@@ -712,11 +908,11 @@ namespace NativeWebSocket
             }
         }
 
-        public async Awaitable Close()
+        public async Task Close()
         {
             if (State == WebSocketState.Open)
             {
-                await m_Socket.CloseAsync(WebSocketCloseStatus.NormalClosure, string.Empty, m_CancellationToken).ConfigureAwait(false);
+                await m_Socket.CloseAsync(WebSocketCloseStatus.NormalClosure, string.Empty, m_CancellationToken);
             }
         }
     }

@@ -338,7 +338,7 @@ namespace Colyseus
         public async Awaitable Send<MessageType>(byte type, MessageType message)
         {
 #if USE_MESSAGEPACK_CSHARP
-            using var rental = SequencePool.Shared.Rent();
+            var rental = SequencePool.Shared.Rent();
             var sequence = rental.Value;
 
             var initial = sequence.GetMemory(3);
@@ -357,7 +357,7 @@ namespace Colyseus
 
             MessagePackSerializer.Serialize(sequence, message);
 
-            await Connection.Send(rental.Value);
+            await Connection.Send(rental);
 #else
             MemoryStream serializationOutput = new MemoryStream();
             MsgPack.Serialize(message, serializationOutput, SerializationOptions.SuppressTypeInformation);
@@ -413,7 +413,7 @@ namespace Colyseus
         public async Awaitable Send<MessageType>(string type, MessageType message)
         {
 #if USE_MESSAGEPACK_CSHARP
-            using var rental = SequencePool.Shared.Rent();
+            var rental = SequencePool.Shared.Rent();
             var sequence = rental.Value;
 
             var memory = sequence.GetMemory(type.Length * 2 + 6);
@@ -422,7 +422,7 @@ namespace Colyseus
 
             MessagePackSerializer.Serialize(sequence, message);
 
-            await Connection.Send(rental.Value);
+            await Connection.Send(rental);
 #else
             MemoryStream serializationOutput = new MemoryStream();
             MsgPack.Serialize(message, serializationOutput, SerializationOptions.SuppressTypeInformation);
