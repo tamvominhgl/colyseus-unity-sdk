@@ -671,9 +671,23 @@ namespace NativeWebSocket
                     }
                 }
 
+                using var rental = message.IsRental ? message.Rental : default;
+
+                if (m_CancellationToken.IsCancellationRequested)
+                {
+                    DiscardOutgoingQueue();
+                    return;
+                }
+
+                if (State != WebSocketState.Open)
+                {
+                    Debug.LogError("WebSocket not in Open state to send data");
+                    DiscardOutgoingQueue();
+                    return;
+                }
+
                 if (message.IsRental)
                 {
-                    using var rental = message.Rental;
                     await SendOutgoing(rental);
                 }
                 else
@@ -685,11 +699,6 @@ namespace NativeWebSocket
 
         private async Task SendOutgoing(ReadOnlyMemory<byte> buffer)
         {
-            if (State != WebSocketState.Open || m_CancellationToken.IsCancellationRequested)
-            {
-                return;
-            }
-
             try
             {
                 await m_Socket.SendAsync(buffer, WebSocketMessageType.Binary, true, m_CancellationToken).ConfigureAwait(false);
@@ -711,11 +720,6 @@ namespace NativeWebSocket
 
         private async Task SendOutgoing(SequencePool.Rental rental)
         {
-            if (State != WebSocketState.Open || m_CancellationToken.IsCancellationRequested)
-            {
-                return;
-            }
-
             try
             {
                 ReadOnlySequence<byte> sequence = rental.Value;
