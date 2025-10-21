@@ -673,7 +673,8 @@ namespace NativeWebSocket
 
                 if (message.IsRental)
                 {
-                    await SendOutgoing(message.Rental);
+                    using var rental = message.Rental;
+                    await SendOutgoing(rental);
                 }
                 else
                 {
@@ -708,10 +709,8 @@ namespace NativeWebSocket
             }
         }
 
-        private async Task SendOutgoing(SequencePool.Rental outgoing)
+        private async Task SendOutgoing(SequencePool.Rental rental)
         {
-            using var rental = outgoing;
-
             if (State != WebSocketState.Open || m_CancellationToken.IsCancellationRequested)
             {
                 return;
