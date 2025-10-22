@@ -34,7 +34,7 @@ namespace Colyseus
         /// <summary>
         ///     Set keep alive interal of websocket, in miliseconds
         /// </summary>
-        public long keepAliveInterval = 10000;
+        public long keepAliveInterval = 0;
 
         /// <summary>
         /// Internal wrapper class for a <see cref="UnityEngine.Networking.UnityWebRequest"/> Request header since Unity cant serialize arrays
