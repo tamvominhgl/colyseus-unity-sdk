@@ -136,7 +136,7 @@ namespace Colyseus
                 if (req.isNetworkError || req.isHttpError)
 #endif
                 {
-                    var errorMessage = req.error;
+                    var errorMessage = $"{req.error}\n{req.url}";
 
                     //
                     // Parse JSON from response
