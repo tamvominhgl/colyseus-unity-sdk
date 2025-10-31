@@ -57,7 +57,14 @@ namespace Colyseus
         /// <param name="message">Data for the Action, will be cast to "T"</param>
         public void Invoke(object message)
         {
-            Action.Invoke((T)message);
+            if (message == default)
+            {
+                Action.Invoke(default);
+            }
+            else
+            {
+                Action.Invoke((T)message);
+            }
         }
 
 #if USE_MESSAGEPACK_CSHARP
