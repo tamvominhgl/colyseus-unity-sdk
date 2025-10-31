@@ -23,7 +23,8 @@ using System.Threading.Tasks;
 [DefaultExecutionOrder(-1)]
 public class MainThreadUtil : MonoBehaviour
 {
-    public static event Action OnUpdate = delegate { };
+    public static event Action AppUpdate = delegate { };
+    public static event Action<bool> AppPause = delegate { };
 
 #if !UNITY_2023_1_OR_NEWER
     private static MainThreadUtil Instance { get; set; }
@@ -58,8 +59,13 @@ public class MainThreadUtil : MonoBehaviour
 
     void Update()
     {
-        OnUpdate();
+        AppUpdate();
     }
+
+	void OnApplicationPause(bool pause)
+	{
+        AppPause(pause);
+	}
 }
 
 #if !UNITY_2023_1_OR_NEWER
@@ -523,7 +529,7 @@ namespace NativeWebSocket
                 if (!dispatcherRegistered)
                 {
                     dispatcherRegistered = true;
-                    MainThreadUtil.OnUpdate += DispatchMessageQueue;
+                    MainThreadUtil.AppUpdate += DispatchMessageQueue;
                 }
 
                 await m_Socket.ConnectAsync(uri, m_CancellationToken);
@@ -555,7 +561,7 @@ namespace NativeWebSocket
             }
             finally
             {
-                MainThreadUtil.OnUpdate -= DispatchMessageQueue;
+                MainThreadUtil.AppUpdate -= DispatchMessageQueue;
                 dispatcherRegistered = false;
 
                 m_TokenSource.Cancel();
