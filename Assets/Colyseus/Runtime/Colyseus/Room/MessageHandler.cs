@@ -27,7 +27,7 @@ namespace Colyseus
         /// <summary>
         ///     Message Type
         /// </summary>
-        Type Type { get; }
+        // Type Type { get; }
 
         /// <summary>
         ///     Base invocation for the MessageHandler
@@ -38,6 +38,8 @@ namespace Colyseus
 #if USE_MESSAGEPACK_CSHARP
         object Parse(ReadOnlySequence<byte> sequence);
 #endif
+
+        bool InvokeThreaded { get; }
     }
 
     /// <summary>
@@ -50,6 +52,8 @@ namespace Colyseus
         ///     The Action this message will invoke
         /// </summary>
         public Action<T> Action;
+
+        public bool InvokeThreaded { get; set; } = false;
 
         /// <summary>
         ///     Invokes this message's Action
@@ -78,9 +82,9 @@ namespace Colyseus
         ///     Implementation of the interface Type
         /// </summary>
         /// <returns>typeof(T)</returns>
-        public Type Type
-        {
-            get { return typeof(T); }
-        }
+        // public Type Type
+        // {
+        //     get { return typeof(T); }
+        // }
     }
 }

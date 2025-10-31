@@ -882,7 +882,8 @@ namespace NativeWebSocket
                         }
                         else if (parseResult < 0)
                         {
-                            // there's parsing error, don't enqueue message to avoid double parsing
+                            // there's parsing error or message is dispatched in thread
+                            // don't enqueue message to avoid double parsing
                         }
                         else
                         {

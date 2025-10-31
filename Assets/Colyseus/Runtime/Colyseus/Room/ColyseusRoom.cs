@@ -557,6 +557,15 @@ namespace Colyseus
             });
         }
 
+        public void OnMessageThreaded<MessageType>(byte type, Action<MessageType> handler)
+        {
+            OnMessageByteHandlers.TryAdd(type, new ColyseusMessageHandler<MessageType>
+            {
+                Action = handler,
+                InvokeThreaded = true,
+            });
+        }
+
         /// <summary>
         ///     The function that will be called when the <see cref="Connection" /> receives a message
         /// </summary>
@@ -758,7 +767,16 @@ namespace Colyseus
                     {
                         obj = default;
                     }
-                    return 1;
+
+                    if (handler.InvokeThreaded)
+                    {
+                        handler.Invoke(obj);
+                        return -1;
+                    }
+                    else
+                    {
+                        return 1;
+                    }
                 }
                 else
                 {
