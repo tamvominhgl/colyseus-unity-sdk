@@ -543,6 +543,21 @@ namespace Colyseus
             OnMessageStringHandlers.TryAdd(new HandlerKey(type), new HandlerValue(type, messageHandler));
         }
 
+#if USE_MESSAGEPACK_CSHARP
+        public void OnMessageThreaded<MessageType>(string type, Action<MessageType> handler)
+        {
+            var messageHandler = new ColyseusMessageHandler<MessageType>
+            {
+                Action = handler,
+                InvokeThreaded = true,
+            };
+
+            OnMessageHandlers.TryAdd(type, messageHandler);
+
+            OnMessageStringHandlers.TryAdd(new HandlerKey(type), new HandlerValue(type, messageHandler));
+        }
+#endif
+
         /// <summary>
         ///     Method to add new message handlers to the room
         /// </summary>
@@ -557,6 +572,7 @@ namespace Colyseus
             });
         }
 
+#if USE_MESSAGEPACK_CSHARP
         public void OnMessageThreaded<MessageType>(byte type, Action<MessageType> handler)
         {
             OnMessageByteHandlers.TryAdd(type, new ColyseusMessageHandler<MessageType>
@@ -565,6 +581,7 @@ namespace Colyseus
                 InvokeThreaded = true,
             });
         }
+#endif
 
         /// <summary>
         ///     The function that will be called when the <see cref="Connection" /> receives a message
