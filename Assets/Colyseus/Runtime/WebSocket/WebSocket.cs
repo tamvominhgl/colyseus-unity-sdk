@@ -392,6 +392,7 @@ namespace NativeWebSocket
 
         private CancellationTokenSource m_TokenSource;
         private CancellationToken m_CancellationToken;
+        private CancellationToken m_ExitToken;
 
         private bool dispatcherRegistered = false;
 
@@ -511,6 +512,8 @@ namespace NativeWebSocket
         {
             try
             {
+                m_ExitToken = Application.exitCancellationToken;
+
                 m_TokenSource = new CancellationTokenSource();
                 m_CancellationToken = m_TokenSource.Token;
 
@@ -566,15 +569,18 @@ namespace NativeWebSocket
 
                 m_TokenSource.Cancel();
 
+                if (!m_ExitToken.IsCancellationRequested)
+                {
 #if UNITY_2023_1_OR_NEWER
-                await Task.BackgroundThreadAsync();
+                    await Task.BackgroundThreadAsync();
 #else
-                await new WaitForBackgroundThread();
+                    await new WaitForBackgroundThread();
 #endif
 
-                DiscardOutgoingQueue();
+                    DiscardOutgoingQueue();
 
-                m_Socket?.Dispose();
+                    m_Socket?.Dispose();
+                }
             }
         }
 
@@ -598,7 +604,7 @@ namespace NativeWebSocket
 
             lock (SendingMessageLock)
             {
-                if (m_CancellationToken.IsCancellationRequested)
+                if (m_CancellationToken.IsCancellationRequested || m_ExitToken.IsCancellationRequested)
                 {
                     return;
                 }
@@ -619,7 +625,7 @@ namespace NativeWebSocket
 
             if (needRunningTask)
             {
-                _ = RunSendingTask();
+                _ = RunSendingTask(m_ExitToken);
             }
         }
 
@@ -635,7 +641,7 @@ namespace NativeWebSocket
 
             lock (SendingMessageLock)
             {
-                if (m_CancellationToken.IsCancellationRequested)
+                if (m_CancellationToken.IsCancellationRequested || m_ExitToken.IsCancellationRequested)
                 {
                     rental.Dispose();
                     return;
@@ -658,13 +664,13 @@ namespace NativeWebSocket
 
             if (needRunningTask)
             {
-                _ = RunSendingTask();
+                _ = RunSendingTask(m_ExitToken);
             }
         }
 
-        private async Task RunSendingTask()
+        private async Task RunSendingTask(CancellationToken exitToken)
         {
-            while (true)
+            while (true && !exitToken.IsCancellationRequested)
             {
                 OutgoingMessage message;
 
@@ -678,6 +684,11 @@ namespace NativeWebSocket
                 }
 
                 using var rental = message.IsRental ? message.Rental : default;
+
+                if (exitToken.IsCancellationRequested)
+                {
+                    return;
+                }
 
                 if (m_CancellationToken.IsCancellationRequested)
                 {
@@ -774,6 +785,11 @@ namespace NativeWebSocket
 
         private void DiscardOutgoingQueue()
         {
+            if (m_ExitToken.IsCancellationRequested)
+            {
+                return;
+            }
+
             lock (SendingMessageLock)
             {
                 while (m_outgoingQueue.TryDequeue(out var message))
