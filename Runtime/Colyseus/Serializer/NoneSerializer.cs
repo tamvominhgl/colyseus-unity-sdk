@@ -1,19 +1,24 @@
 namespace Colyseus
 {
+    // TODO: remove dummy state dependency from NoneSerializer.
+    public class NoState : Schema.Schema { }
+
     /// <summary>
-    ///     An empty implementation of <see cref="IColyseusSerializer{T}" />
+    ///     An empty implementation of <see cref="ISerializer{T}" />
     /// </summary>
-    public class ColyseusNoneSerializer : IColyseusSerializer<object>
+    public class NoneSerializer : ISerializer<NoState>
     {
+        NoState state = new NoState();
+
         /// <inheritdoc />
         public void SetState(byte[] rawEncodedState, int offset)
         {
         }
 
         /// <inheritdoc />
-        public object GetState()
+        public NoState GetState()
         {
-            return this;
+            return state;
         }
 
         /// <inheritdoc />

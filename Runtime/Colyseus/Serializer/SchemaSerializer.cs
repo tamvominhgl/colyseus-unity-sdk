@@ -1,134 +1,207 @@
 using System;
 using System.Reflection;
+using System.Collections.Generic;
 using Colyseus.Schema;
 using Type = Colyseus.Schema.Type;
 
 namespace Colyseus
 {
-    /// <summary>
-    ///     An instance of ISerializer specifically for <see cref="Schema" /> based serialization
-    /// </summary>
-    /// <typeparam name="T">A child of <see cref="Schema" /></typeparam>
-    public class ColyseusSchemaSerializer<T> : IColyseusSerializer<T>
-    {
-        /// <summary>
-        ///     A reference to the <see cref="Iterator" />
-        /// </summary>
-        protected Iterator it = new Iterator();
+	/// <summary>
+	///     An instance of ISerializer specifically for <see cref="Schema" /> based serialization
+	/// </summary>
+	/// <typeparam name="T">A child of <see cref="Schema" /></typeparam>
+	public class SchemaSerializer<T> : ISerializer<T> where T : Schema.Schema
+	{
+		public Decoder<T> Decoder = new Decoder<T>();
 
-        /// <summary>
-        ///     Used for tracking all references
-        /// </summary>
-        protected ColyseusReferenceTracker refs = new ColyseusReferenceTracker();
+		/// <summary>
+		///     A reference to the <see cref="Iterator" />
+		/// </summary>
+		protected Iterator It = new Iterator();
 
-        /// <summary>
-        ///     The current state of this Serializer
-        /// </summary>
-        protected T state;
+		/// <inheritdoc />
+		public void SetState(byte[] data, int offset = 0)
+		{
+			It.Offset = offset;
+			Decoder.Decode(data, It);
+		}
 
-        public ColyseusSchemaSerializer()
-        {
-            state = Activator.CreateInstance<T>();
-        }
+		/// <inheritdoc />
+		public T GetState()
+		{
+			return Decoder.State;
+		}
 
-        /// <inheritdoc />
-        public void SetState(byte[] data, int offset = 0)
-        {
-            it.Offset = offset;
-            (state as Schema.Schema)?.Decode(data, it, refs);
-        }
+		/// <inheritdoc />
+		public void Patch(byte[] data, int offset = 0)
+		{
+			It.Offset = offset;
+			Decoder.Decode(data, It);
+		}
 
-        /// <inheritdoc />
-        public T GetState()
-        {
-            return state;
-        }
+		/// <inheritdoc />
+		public void Teardown()
+		{
+			// Clear all stored references.
+			Decoder.Teardown();
+		}
 
-        /// <inheritdoc />
-        public void Patch(byte[] data, int offset = 0)
-        {
-            it.Offset = offset;
-            (state as Schema.Schema)?.Decode(data, it, refs);
-        }
+		/// <inheritdoc />
+		public void Handshake(byte[] bytes, int offset)
+		{
+			Iterator it = new Iterator { Offset = offset };
 
-        /// <inheritdoc />
-        public void Teardown()
-        {
-            // Clear all stored references.
-            refs.Clear();
-        }
+			var reflectionDecoder = new Decoder<Reflection>();
+			reflectionDecoder.Decode(bytes, it);
 
-        /// <inheritdoc />
-        public void Handshake(byte[] bytes, int offset)
-        {
-            System.Type targetType = typeof(T);
+			var reflection = reflectionDecoder.State;
+			var types = reflection.types.items.ToArray();
 
-            System.Type[] allTypes = targetType.Assembly.GetTypes();
-            System.Type[] namespaceSchemaTypes = Array.FindAll(allTypes, t => t.Namespace == targetType.Namespace &&
-                                                                              typeof(Schema.Schema).IsAssignableFrom(
-                                                                                  targetType));
+			if (typeof(T) == typeof(DynamicSchema))
+			{
+				HandshakeDynamic(reflection, types);
+				return;
+			}
 
-            ColyseusReflection reflection = new ColyseusReflection();
-            Iterator it = new Iterator {Offset = offset};
+			System.Type targetType = typeof(T);
 
-            reflection.Decode(bytes, it);
+			System.Type[] allTypes = targetType.Assembly.GetTypes();
+			List<System.Type> namespaceSchemaTypes = new List<System.Type>(Array.FindAll(allTypes, t => t.Namespace == targetType.Namespace && typeof(Schema.Schema).IsAssignableFrom( targetType)));
 
-            for (int i = 0; i < reflection.types.Count; i++)
-            {
-                System.Type schemaType = Array.Find(namespaceSchemaTypes, t => CompareTypes(t, reflection.types[i]));
+			for (int i = 0; i < reflection.types.Count; i++)
+			{
+				var reflectionType = reflection.types[i];
+				var reflectionFields = GetFieldsFromType(reflectionType, types);
 
-                if (schemaType != null)
-                {
-                    ColyseusContext.GetInstance().SetTypeId(schemaType, reflection.types[i].id);   
-                } 
-                else 
-                {
-                    UnityEngine.Debug.LogWarning(
-                        "Local schema mismatch from server. Use \"schema-codegen\" to generate up-to-date local definitions.");
-                }
-            }
-        }
+				var schemaType = namespaceSchemaTypes.Find(t => CompareTypes(t, reflectionFields));
 
-        private static bool CompareTypes(System.Type schemaType, ReflectionType reflectionType)
-        {
-            FieldInfo[] fields = schemaType.GetFields();
-            int typedFieldCount = 0;
+				if (schemaType != null)
+				{
+					Decoder.Context.SetTypeId(schemaType, reflection.types[i].id);
 
-            string fieldNames = "";
-            for (int i = 0; i < fields.Length; i++)
-            {
-                fieldNames += fields[i].Name + ", ";
-            }
+					// Remove from list to avoid duplicate checks
+					namespaceSchemaTypes.Remove(schemaType);
 
-            foreach (FieldInfo field in fields)
-            {
-                object[] typeAttributes = field.GetCustomAttributes(typeof(Type), true);
+				}
+				else
+				{
+					ColyseusContext.Logger.LogWarning(
+						"Local schema mismatch from server. Use \"schema-codegen\" to generate up-to-date local definitions.");
+				}
+			}
+		}
 
-                if (typeAttributes.Length == 1)
-                {
-                    Type typedField = (Type) typeAttributes[0];
-                    ReflectionField reflectionField = reflectionType.fields[typedField.Index];
+		private void HandshakeDynamic(Reflection reflection, ReflectionType[] types)
+		{
+			Decoder.DynamicDefinitions = new Dictionary<float, DynamicTypeDefinition>();
 
-                    if (
-                        reflectionField == null ||
-                        reflectionField.type.IndexOf(typedField.FieldType) != 0 ||
-                        reflectionField.name != field.Name
-                    )
-                    {
-                        return false;
-                    }
+			for (int i = 0; i < reflection.types.Count; i++)
+			{
+				var reflectionType = reflection.types[i];
+				var reflectionFields = GetFieldsFromType(reflectionType, types);
 
-                    typedFieldCount++;
-                }
-            }
+				var definition = new DynamicTypeDefinition();
+				definition.TypeId = reflectionType.id;
 
-            // skip if number of Type'd fields doesn't match
-            if (typedFieldCount != reflectionType.fields.Count)
-            {
-                return false;
-            }
+				for (int j = 0; j < reflectionFields.Count; j++)
+				{
+					var field = reflectionFields[j];
+					definition.ParseFieldType(j, field.name, field.type, field.referencedType);
+				}
 
-            return true;
-        }
-    }
+				Decoder.DynamicDefinitions[reflectionType.id] = definition;
+				Decoder.Context.SetTypeId(typeof(DynamicSchema), reflectionType.id);
+			}
+
+			// Assign root definition
+			var rootTypeId = reflection.rootType >= 0
+				? reflection.rootType
+				: (reflection.types.Count > 0 ? reflection.types[0].id : -1);
+
+			if (rootTypeId >= 0)
+			{
+				var rootState = Decoder.State as DynamicSchema;
+				if (rootState != null && Decoder.DynamicDefinitions.TryGetValue(rootTypeId, out var rootDef))
+				{
+					rootState.Definition = rootDef;
+				}
+			}
+		}
+
+		private static string DebugReflectionType(ReflectionType reflectionType, List<ReflectionField> reflectionFields)
+		{
+			List<string> fieldNames = new List<string>();
+			for (int i = 0; i < reflectionFields.Count; i++)
+			{
+				fieldNames.Add(reflectionFields[i].name);
+			}
+			return $"TypeId: {reflectionType.id} (extendsId: {reflectionType.extendsId}), Fields: {string.Join(", ", fieldNames)}";
+		}
+
+		private static bool CompareTypes(System.Type schemaType, List<ReflectionField> reflectionFields)
+		{
+			FieldInfo[] fields = schemaType.GetFields();
+			int typedFieldCount = 0;
+
+			foreach (FieldInfo field in fields)
+			{
+				object[] typeAttributes = field.GetCustomAttributes(typeof(Type), true);
+				if (typeAttributes.Length != 1)
+				{
+					continue;
+				}
+
+				Type typedField = (Type)typeAttributes[0];
+
+				// Skip if reflectionType doesn't have the field
+				if (typedField.Index >= reflectionFields.Count)
+				{
+					return false;
+				}
+
+				ReflectionField reflectionField = reflectionFields[typedField.Index];
+
+				if (
+					reflectionField.type.IndexOf(typedField.FieldType) != 0 ||
+					reflectionField.name != field.Name
+				)
+				{
+					return false;
+				}
+
+				typedFieldCount++;
+			}
+
+			// skip if number of Type'd fields doesn't match
+			if (typedFieldCount != reflectionFields.Count)
+			{
+				return false;
+			}
+
+			return true;
+		}
+
+		private List<ReflectionField> GetFieldsFromType(ReflectionType reflectionType, ReflectionType[] types)
+		{
+			var reflectionFields = new List<ReflectionField>();
+
+			// Find all types in the inheritance chain from child to root
+			List<ReflectionType> inheritanceChain = new List<ReflectionType>();
+			var extendsId = reflectionType.id;
+			while (extendsId != -1)
+			{
+				var currentType = Array.Find(types, t => t.id == extendsId);
+				inheritanceChain.Insert(0, currentType); // Insert at the beginning to reverse order
+				extendsId = currentType.extendsId;
+			}
+
+			// Collect fields from each type in the chain, from root to child
+			foreach (var type in inheritanceChain)
+			{
+				type.fields.ForEach((_, field) => reflectionFields.Add(field));
+			}
+
+			return reflectionFields;
+		}
+	}
 }
